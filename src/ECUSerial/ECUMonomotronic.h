@@ -129,25 +129,38 @@ class ECUMonomotronic
 	void							debug_regiter_err(const char *file, int line);
 
 public:
+	// Init received packages/ECU identification
 	const std::deque<ECUmmpacket>	&getinitPackets() const { return initPackets; };
 
-
+	// Custom commands
+	// See ECU_FRAMES_ID
 	std::optional<ECUmmpacket>		getECUResponse();
 	bool							sendECURequest(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+
+
+	// Wrapper to commands
+	std::optional<std::deque<ECUmmpacket>>		ECUReadErrors();
+	std::optional<ECUmmpacket>					ECUCleanErrors();
 
 	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
 	enum ECU_FRAMES_ID { ECU_DATA_MEMORY_READ = 0x01, ECU_REQ_ACTUATOR = 0x04, ECU_CLEAR_ERRORS_CODE = 0x05, ECU_REQ_DIAGNOSIS_END = 0x06, ECU_READ_ERRORS_CODE = 0x07, ECU_ACK_CODE = 0x09, ECU_NOT_ACK_CODE = 0x0A,
 						ECU_INIT_STRING = 0xF6, ECU_REQUEST_ADC_CODE = 0xFB, ECU_ERROR_DATA_CODE = 0xFC, ECU_READ_DATA_CODE = 0xFE};
 
+	// Error codes to description
 	static std::string				errorPacketToString(const ECUmmpacket &p, bool &present);
 
 	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
 	bool portIsOpen() const noexcept { return sp.isConnected(); };
+
+	// Interface controls
 	void init();
 	void forcestop();
 	void stop();
+
+	// Debugging
 	void debugTofile();
 
+	
 	ECUMonomotronic(const char *port, bool enableLogging = true) noexcept;
 	~ECUMonomotronic();
 };

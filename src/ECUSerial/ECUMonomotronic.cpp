@@ -129,6 +129,87 @@ bool ECUMonomotronic::sendECURequest(uint8_t frameid, const std::vector<uint8_t>
 	return false;
 }
 
+// TODO: Tweak timings
+
+std::optional<std::deque<ECUmmpacket>> ECUMonomotronic::ECUReadErrors()
+{
+	if (sendECURequest(ECU_READ_ERRORS_CODE))
+	{
+		std::deque<ECUmmpacket>			ecup;
+		std::optional<ECUmmpacket>		ecuptmp;
+
+		uint8_t frametypeidtmp = 0;
+
+		do
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+			do
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(25));
+				ecuptmp = getECUResponse();
+			} while (!ecuptmp.has_value());
+
+			// Copy the frame type id
+			frametypeidtmp = ecuptmp.value().frametypeid;
+
+			if (frametypeidtmp != ECU_ACK_CODE)
+			{
+				if (frametypeidtmp != ECU_ERROR_DATA_CODE)
+				{
+					// Unexpected packet
+					// TODO: Handle it
+					
+					//return std::nullopt;
+				}
+
+				// Send "Acknowledge" packet to the ECU
+				bool sendACK = false;
+				do
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(25));
+					sendACK = sendECURequest(ECU_ACK_CODE);
+				} while (!sendACK);
+			}
+
+			// Save the ECU's response
+			ecup.push_back(std::move(ecuptmp.value()));
+		} while (frametypeidtmp != ECU_ACK_CODE);
+
+		return std::move(ecup);
+	}
+
+	return std::nullopt;
+}
+
+std::optional<ECUmmpacket> ECUMonomotronic::ECUCleanErrors()
+{
+	/*
+	TODO: Handle errors, implement timeout
+	*/
+	if (canAcceptCommands())
+	{
+		std::optional<ECUmmpacket>		ecuptmp;
+
+		bool sendACK = false;
+		do
+		{
+			sendACK = sendECURequest(ECU_CLEAR_ERRORS_CODE);
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		} while (!sendACK);
+
+		do
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			ecuptmp = getECUResponse();
+		} while (!ecuptmp.has_value());
+
+		return std::move(ecuptmp);
+	}
+
+	return std::nullopt;
+}
+
 std::string ECUMonomotronic::errorPacketToString(const ECUmmpacket &p, bool &present)
 {
 	if (p.frametypeid == ECU_ERROR_DATA_CODE)
@@ -195,7 +276,7 @@ void ECUMonomotronic::sendInitSequence()
 {
 	sp.scBreak(true);
 	std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	sendInit<8>(sp, 200, std::array<bool, 8>{1, 1, 1, 1, 0, 1, 1, 1});
+	sendInit<8>(sp, 200, std::array<bool, 8>{1, 1, 1, 1, 0, 1, 1, 1}); // 0x10
 	sp.scBreak(false);
 }
 
@@ -369,6 +450,9 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 				}
 				else if (diff.count() > 0.5) // Keep the connection alive
 				{
+					// TODO: Improve it
+					// May have bugs
+
 					if (!mm.ECUWritePacket(ECU_ACK_CODE))
 					{
 						mm.debug_regiter_err(__FILE__, __LINE__);
@@ -422,7 +506,7 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 				mm.fprintlogging(fs);
 				fs.flush();
 			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			mm.ECUThreadRunning = false;
 			return;
 			break;

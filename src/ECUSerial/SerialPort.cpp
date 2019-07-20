@@ -17,22 +17,22 @@ bool SerialPort::clearBreak()
 }
 COMSTAT SerialPort::getStat()
 {
-	ClearCommError(this->handler, &this->errors, &this->status);
-	return this->status;
+	ClearCommError(handler, &errors, &status);
+	return status;
 }
 
 SerialPort::SerialPort(const char *portName) noexcept
 {
-	this->connected = false;
+	connected = false;
 
-	this->handler = CreateFileA(portName,
+	handler = CreateFileA(portName,
 		GENERIC_READ | GENERIC_WRITE,
 		0,
 		NULL,
 		OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL,
 		NULL);
-	if (this->handler == INVALID_HANDLE_VALUE) {
+	if (handler == INVALID_HANDLE_VALUE) {
 		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
 			printf("ERROR: Handle was not attached. Reason: %s not available\n", portName);
 		}
@@ -44,7 +44,7 @@ SerialPort::SerialPort(const char *portName) noexcept
 	else {
 		DCB dcbSerialParameters = { 0 };
 
-		if (!GetCommState(this->handler, &dcbSerialParameters)) {
+		if (!GetCommState(handler, &dcbSerialParameters)) {
 			printf("failed to get current serial parameters");
 		}
 		else {
@@ -58,8 +58,8 @@ SerialPort::SerialPort(const char *portName) noexcept
 				printf("ALERT: could not set Serial port parameters\n");
 			}
 			else {
-				this->connected = true;
-				PurgeComm(this->handler, PURGE_RXCLEAR | PURGE_TXCLEAR);
+				connected = true;
+				PurgeComm(handler, PURGE_RXCLEAR | PURGE_TXCLEAR);
 				Sleep(10);
 			}
 
@@ -121,10 +121,10 @@ int SerialPort::readUSerialPort(void *buffer, unsigned int buf_size)
 		{
 			toRead = buf_size;
 		}
-		else toRead = this->status.cbInQue;
+		else toRead = status.cbInQue;
 	}
 
-	if (ReadFile(this->handler, buffer, toRead, &bytesRead, NULL)) return bytesRead;
+	if (ReadFile(handler, buffer, toRead, &bytesRead, NULL)) return bytesRead;
 
 	return 0;
 }
@@ -134,7 +134,7 @@ std::optional<uint8_t> SerialPort::fastByteReadUSerialPort()
 	DWORD bytesRead = 0;
 	uint8_t byte = 0;
 
-	if (ReadFile(this->handler, &byte, sizeof(byte), &bytesRead, NULL)) return std::make_optional<uint8_t>(byte);
+	if (ReadFile(handler, &byte, sizeof(byte), &bytesRead, NULL)) return std::make_optional<uint8_t>(byte);
 
 	ClearCommError(handler, &errors, &status);
 	return std::nullopt;
