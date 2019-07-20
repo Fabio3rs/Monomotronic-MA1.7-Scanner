@@ -4,6 +4,9 @@ C++ scanner for bosch monomotronic MA1.7 Fiat Tipo 1.6ie
 Tested using VAGCOM KKL with Fiat 3 pin to OBD2 adapter
 Software in development 
 
+Testing:
+https://www.youtube.com/watch?v=awX4FsL3zvI
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
