@@ -87,13 +87,13 @@ class ECUMonomotronic
 	std::deque<ECUmmpacket> initPackets;
 
 	struct blogging {
-		std::chrono::system_clock::time_point time;
+		std::chrono::high_resolution_clock::time_point time;
 		int act;
 		int byte;
 
 		blogging(int a, int b)
 		{
-			time = std::chrono::system_clock::now();
+			time = std::chrono::high_resolution_clock::now();
 			act = a;
 			byte = b;
 		}
@@ -128,7 +128,10 @@ class ECUMonomotronic
 
 	void							debug_regiter_err(const char *file, int line);
 
+	std::optional<std::deque<ECUmmpacket>>		ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+
 public:
+
 	// Init received packages/ECU identification
 	const std::deque<ECUmmpacket>	&getinitPackets() const { return initPackets; };
 
@@ -140,6 +143,7 @@ public:
 
 	// Wrapper to commands
 	std::optional<std::deque<ECUmmpacket>>		ECUReadErrors();
+	std::optional<std::deque<ECUmmpacket>>		ECUReadSensor(uint8_t sensorID);
 	std::optional<ECUmmpacket>					ECUCleanErrors();
 
 	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
@@ -150,6 +154,7 @@ public:
 	static std::string				errorPacketToString(const ECUmmpacket &p, bool &present);
 
 	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+	bool isThreadRunning() const { return ECUThreadRunning; }
 	bool portIsOpen() const noexcept { return sp.isConnected(); };
 
 	// Interface controls
@@ -159,7 +164,7 @@ public:
 
 	// Debugging
 	void debugTofile();
-
+	void purgeSerial();
 	
 	ECUMonomotronic(const char *port, bool enableLogging = true) noexcept;
 	~ECUMonomotronic();

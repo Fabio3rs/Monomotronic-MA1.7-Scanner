@@ -26,6 +26,9 @@ SOFTWARE.
 #include "ECUMonomotronic.h"
 #include <iostream>
 #include <map>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 void ECUMonomotronic::updatePacketCounter(ECUMonomotronic &mm, const ECUmmpacket &p)
 {
@@ -33,11 +36,30 @@ void ECUMonomotronic::updatePacketCounter(ECUMonomotronic &mm, const ECUmmpacket
 		mm.ECUPacketCounter = p.counter;
 }
 
+std::string GetDateAndTime(const std::chrono::high_resolution_clock::time_point &th)
+{
+	std::chrono::microseconds ms = std::chrono::duration_cast<std::chrono::microseconds>(th.time_since_epoch());
+
+	std::chrono::seconds s = std::chrono::duration_cast<std::chrono::seconds>(th.time_since_epoch());
+	std::time_t tt = s.count();
+	std::size_t fractional_seconds = ms.count() % 1000000;
+
+	std::string str = std::string(ctime(&tt));
+	if (str[str.size() - 1] == '\n')
+	{
+		str[str.size() - 1] = ' ';
+	}
+	str += std::to_string(fractional_seconds);
+
+	return str;
+}
+
 void ECUMonomotronic::printlogging()
 {
 	//std::lock_guard<std::mutex> a(logm);
 	for (auto &b : bytesLogging)
 	{
+		std::cout << GetDateAndTime(b.time) << " ";
 		if (b.act == 0)
 		{
 			std::cout << "READ: " << std::hex << b.byte;
@@ -70,6 +92,7 @@ void ECUMonomotronic::fprintlogging(std::fstream &fs)
 	//std::lock_guard<std::mutex> a(logm);
 	for (auto &b : bytesLogging)
 	{
+		fs << GetDateAndTime(b.time) << " ";
 		if (b.act == 0)
 		{
 			fs << "READ: " << std::hex << b.byte;
@@ -102,6 +125,59 @@ void ECUMonomotronic::debug_regiter_err(const char *file, int line)
 	debug_line = line;
 }
 
+// TODO: Tweak timings
+
+std::optional<std::deque<ECUmmpacket>> ECUMonomotronic::ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data)
+{
+	if (sendECURequest(frameid, data))
+	{
+		std::deque<ECUmmpacket>					ecup;
+
+		uint8_t frametypeidtmp = 0;
+
+		do
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+			std::optional<ECUmmpacket>			ecuptmp;
+			do
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				ecuptmp = getECUResponse();
+			} while (!ecuptmp.has_value());
+
+			// Copy the frame type id
+			frametypeidtmp = ecuptmp.value().frametypeid;
+
+			if (frametypeidtmp != ECU_ACK_CODE)
+			{
+				if (frametypeidtmp != eECUFrameID)
+				{
+					// Unexpected packet
+					// TODO: Handle it, send NOT ACK?
+					//ECUWriteResponse(ECU_NOT_ACK_CODE);
+					return std::nullopt;
+				}
+
+				// Send "Acknowledge" packet to the ECU
+				bool sendACK = false;
+				do
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					sendACK = sendECURequest(ECU_ACK_CODE);
+				} while (!sendACK);
+			}
+
+			// Save the ECU's response
+			ecup.push_back(std::move(ecuptmp.value()));
+		} while (frametypeidtmp != ECU_ACK_CODE);
+
+		return std::move(ecup);
+	}
+
+	return std::nullopt;
+}
+
 std::optional<ECUmmpacket> ECUMonomotronic::getECUResponse()
 {
 	if (ECUCommandResultAvailable)
@@ -129,57 +205,14 @@ bool ECUMonomotronic::sendECURequest(uint8_t frameid, const std::vector<uint8_t>
 	return false;
 }
 
-// TODO: Tweak timings
-
 std::optional<std::deque<ECUmmpacket>> ECUMonomotronic::ECUReadErrors()
 {
-	if (sendECURequest(ECU_READ_ERRORS_CODE))
-	{
-		std::deque<ECUmmpacket>			ecup;
-		std::optional<ECUmmpacket>		ecuptmp;
+	return ECURequestData(ECU_READ_ERRORS_CODE, ECU_ERROR_DATA_CODE);
+}
 
-		uint8_t frametypeidtmp = 0;
-
-		do
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-			do
-			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(25));
-				ecuptmp = getECUResponse();
-			} while (!ecuptmp.has_value());
-
-			// Copy the frame type id
-			frametypeidtmp = ecuptmp.value().frametypeid;
-
-			if (frametypeidtmp != ECU_ACK_CODE)
-			{
-				if (frametypeidtmp != ECU_ERROR_DATA_CODE)
-				{
-					// Unexpected packet
-					// TODO: Handle it
-					
-					//return std::nullopt;
-				}
-
-				// Send "Acknowledge" packet to the ECU
-				bool sendACK = false;
-				do
-				{
-					std::this_thread::sleep_for(std::chrono::milliseconds(25));
-					sendACK = sendECURequest(ECU_ACK_CODE);
-				} while (!sendACK);
-			}
-
-			// Save the ECU's response
-			ecup.push_back(std::move(ecuptmp.value()));
-		} while (frametypeidtmp != ECU_ACK_CODE);
-
-		return std::move(ecup);
-	}
-
-	return std::nullopt;
+std::optional<std::deque<ECUmmpacket>> ECUMonomotronic::ECUReadSensor(uint8_t sensorID)
+{
+	return ECURequestData(ECU_DATA_MEMORY_READ, ECU_READ_DATA_CODE, { 0x01u, 0x00u, sensorID });
 }
 
 std::optional<ECUmmpacket> ECUMonomotronic::ECUCleanErrors()
@@ -203,6 +236,11 @@ std::optional<ECUmmpacket> ECUMonomotronic::ECUCleanErrors()
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 			ecuptmp = getECUResponse();
 		} while (!ecuptmp.has_value());
+
+		if (ecuptmp.value().frametypeid == 0x03)
+		{
+			ECUWriteResponse(0x10);
+		}
 
 		return std::move(ecuptmp);
 	}
@@ -245,7 +283,7 @@ std::string ECUMonomotronic::errorPacketToString(const ECUmmpacket &p, bool &pre
 				return (*it).second;
 			}
 
-			return std::string();
+			return "Unknown error code";
 		}
 	}
 	return std::string();
@@ -410,10 +448,6 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			std::this_thread::sleep_for(std::chrono::milliseconds(20));
 			if (mm.KeepECUConnectionAlive)
 			{
-				auto now = std::chrono::system_clock::now();
-
-				std::chrono::duration<double> diff = now - lastpackettime;
-
 				// Custom request handler
 				if (mm.ECUNewCommandAvailable)
 				{
@@ -448,7 +482,20 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 						mm.ECUNewCommandAvailable = false;
 					}
 				}
-				else if (diff.count() > 0.5) // Keep the connection alive
+
+
+				auto now = std::chrono::system_clock::now();
+
+				auto diffms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastpackettime);
+				
+				if (diffms.count() > 1000)
+				{
+					mm.debug_regiter_err(__FILE__, __LINE__);
+					mm.ECUThreadErr = 5;
+					nError = true;
+				}
+
+				/*if (diff.count() > 0.85) // Keep the connection alive
 				{
 					// TODO: Improve it
 					// May have bugs
@@ -482,7 +529,7 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 						lastpackettime = std::chrono::system_clock::now();
 					}
-				}
+				}*/
 			}
 
 			if (nError)
@@ -537,8 +584,14 @@ bool ECUMonomotronic::ECUWrite(uint8_t b)
 		result = sp.fastByteReadUSerialPort();
 	} while (!result.has_value());
 
-	if (result.has_value())
-		return result.value() == b;
+	if (result.has_value()) 
+	{
+		if (result.value() == b)
+		{
+			return true;
+		}
+		std::cout << "result.value() == b " << result.value() << " " << b;
+	}
 
 	return false;
 }
@@ -736,12 +789,17 @@ void ECUMonomotronic::stop()
 
 void ECUMonomotronic::debugTofile()
 {
-	if (!ECUThreadRunning)
+	//if (!ECUThreadRunning)
 	{
 		std::fstream fs("ECUSerial.log", std::ios::out | std::ios::trunc);
 		fprintlogging(fs);
 		fs.flush();
 	}
+}
+
+void ECUMonomotronic::purgeSerial()
+{
+
 }
 
 ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept : sp(port)
@@ -774,3 +832,4 @@ ECUMonomotronic::~ECUMonomotronic()
 	if (ECUThreadObj.joinable())
 		ECUThreadObj.join();
 }
+

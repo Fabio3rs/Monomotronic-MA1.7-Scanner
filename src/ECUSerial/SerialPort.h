@@ -1,6 +1,6 @@
 #ifndef SERIALPORT_H
 #define SERIALPORT_H
-
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
