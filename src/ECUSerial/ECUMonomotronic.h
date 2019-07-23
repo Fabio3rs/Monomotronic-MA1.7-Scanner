@@ -157,6 +157,8 @@ public:
 	bool isThreadRunning() const { return ECUThreadRunning; }
 	bool portIsOpen() const noexcept { return sp.isConnected(); };
 
+	int getECUThreadError() const noexcept { return ECUThreadErr; }
+
 	// Interface controls
 	void init();
 	void forcestop();

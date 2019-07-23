@@ -301,8 +301,18 @@ void sendInit(SerialPort &sp, int timeoutms, std::array<bool, n> v)
 
 void ECUMonomotronic::ECUOpenThread()
 {
+	if (ECUThreadObj.joinable())
+		ECUThreadObj.join();
+
 	if (!ECUThreadRunning)
 	{
+		ECUThreadExit = false;
+		ECUInited = false;
+		KeepECUConnectionAlive = true;
+		ECUThreadState = 0;
+		ECUThreadErr = 0;
+		ECUPacketCounter = 0;
+
 		ECUThreadObj = std::thread(ECUThreadFun, std::ref(*this));
 		ECUThreadRunning = true;
 
@@ -342,44 +352,51 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			for (int i = 0; i < 10000 && state != 5; i++)
 			{
 				char b = 0;
-				ECUByte code = mm.ECURead();
+				COMSTAT stat = mm.sp.getStat();
 
-				if (code.has_value())
+				if (stat.cbInQue > 0)
 				{
-					switch (state)
+					ECUByte code = mm.ECURead();
+
+					if (code.has_value())
 					{
-					case 0:
-						if (code == 0x55 && !ECUSendSyncCode)
+						switch (state)
 						{
-							ECUSendSyncCode = true;
+						case 0:
+							if (code == 0x55 && !ECUSendSyncCode)
+							{
+								ECUSendSyncCode = true;
+								++state;
+							}
+							break;
+
+						case 1:
+							key1 = code.value(); // 0x46
 							++state;
+							break;
+
+						case 2:
+							key2 = code.value(); // 0x85
+							++state;
+							break;
+
+						case 3:
+							key3 = code.value(); // 0x89
+							++state;
+							break;
+
+						case 4:
+							key4 = code.value(); // 0xBC
+							++state;
+							break;
+
+						default:
+							break;
 						}
-						break;
-
-					case 1:
-						key1 = code.value(); // 0x46
-						++state;
-						break;
-
-					case 2:
-						key2 = code.value(); // 0x85
-						++state;
-						break;
-
-					case 3:
-						key3 = code.value(); // 0x89
-						++state;
-						break;
-
-					case 4:
-						key4 = code.value(); // 0xBC
-						++state;
-						break;
-
-					default:
-						break;
 					}
 				}
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			}
 
 			if (ECUSendSyncCode)
@@ -555,6 +572,14 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 			mm.ECUThreadRunning = false;
+
+			mm.ECUThreadExit = false;
+			mm.ECUThreadRunning = false;
+			mm.ECUInited = false;
+			mm.KeepECUConnectionAlive = true;
+			mm.ECUThreadState = 0;
+			mm.ECUThreadErr = 0;
+			mm.ECUPacketCounter = 0;
 			return;
 			break;
 		}
@@ -562,7 +587,13 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 		std::this_thread::yield();
 	}
 
+	mm.ECUThreadExit = false;
 	mm.ECUThreadRunning = false;
+	mm.ECUInited = false;
+	mm.KeepECUConnectionAlive = true;
+	mm.ECUThreadState = 0;
+	mm.ECUThreadErr = 0;
+	mm.ECUPacketCounter = 0;
 }
 
 bool ECUMonomotronic::ECUWrite(uint8_t b)
