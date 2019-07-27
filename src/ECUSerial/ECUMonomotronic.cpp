@@ -360,6 +360,10 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 					if (code.has_value())
 					{
+						/*
+						Sometimes 0x55, 0x46, 0x85, 0x89, 0x13, 0xBC
+						Sometimes 0x55, 0x46, 0x85, 0x89, 0xBC
+						*/
 						switch (state)
 						{
 						case 0:
@@ -401,7 +405,19 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 			if (ECUSendSyncCode)
 			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(23));
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+				{
+					COMSTAT stat = mm.sp.getStat();
+
+					if (stat.cbInQue > 0)
+					{
+						mm.ECURead();
+						std::this_thread::sleep_for(std::chrono::milliseconds(10));
+					}
+				}
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 				if (!mm.ECUWrite(~key2))
 				{
 					mm.debug_regiter_err(__FILE__, __LINE__);
@@ -621,7 +637,7 @@ bool ECUMonomotronic::ECUWrite(uint8_t b)
 		{
 			return true;
 		}
-		std::cout << "result.value() == b " << result.value() << " " << b;
+		std::cout << std::hex << "result.value() == b " << (int)result.value() << " " << (int)b;
 	}
 
 	return false;
