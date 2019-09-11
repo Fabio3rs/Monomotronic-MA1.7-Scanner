@@ -289,7 +289,7 @@ std::string ECUMonomotronic::errorPacketToString(const ECUmmpacket &p, bool &pre
 	return std::string();
 }
 
-const char *ECUMonomotronic::getFrameTypeDescription(int frame)
+std::string ECUMonomotronic::getFrameTypeNameStr(int frame)
 {
 	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
 	//enum ECU_FRAMES_ID {
@@ -310,10 +310,15 @@ const char *ECUMonomotronic::getFrameTypeDescription(int frame)
 				{ 0xFC, "ECU_ERROR_DATA_CODE" },
 				{ 0xFE, "ECU_READ_DATA_CODE" }
 	};
+	
+	auto it = pktList.find(frame);
 
+	if (it != pktList.end())
+	{
+		return it->second;
+	}
 
-
-	return nullptr;
+	return "";
 }
 
 template<int n>
@@ -357,6 +362,8 @@ void ECUMonomotronic::sendInitSequence()
 
 void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 {
+	// TODO: Improve packet counter
+	// Improve Error handling
 	auto lastpackettime = std::chrono::system_clock::now();
 
 	mm.ECUThreadCanAcceptCommands = false;
@@ -524,7 +531,8 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 						if (p.has_value())
 						{
-							updatePacketCounter(mm, p.value());
+							//updatePacketCounter(mm, p.value());
+							mm.ECUPacketCounter = p.value().counter;
 
 							mm.ECUResponse = std::move(p.value());
 
@@ -562,7 +570,7 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 					auto diffms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastpackettime);
 
-					if (diffms.count() > 100) // Keep the connection alive
+					if (diffms.count() > 200) // Keep the connection alive
 					{
 						// TODO: Improve it
 						// May have bugs
@@ -910,8 +918,3 @@ ECUMonomotronic::~ECUMonomotronic()
 	{
 		ECUThreadExit = true;
 	}
-
-	if (ECUThreadObj.joinable())
-		ECUThreadObj.join();
-}
-

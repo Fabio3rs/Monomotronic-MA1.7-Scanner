@@ -153,7 +153,7 @@ public:
 	// Error codes to description
 	static std::string				errorPacketToString(const ECUmmpacket &p, bool &present);
 
-	static const char *				getFrameTypeDescription(int frame);
+	static std::string				getFrameTypeNameStr(int frame);
 
 	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
 	bool isThreadRunning() const { return ECUThreadRunning; }
