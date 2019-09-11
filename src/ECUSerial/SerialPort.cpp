@@ -52,6 +52,10 @@ SerialPort::SerialPort(const char *portName) noexcept
 			dcbSerialParameters.ByteSize = 8;
 			dcbSerialParameters.StopBits = ONESTOPBIT;
 			dcbSerialParameters.Parity = NOPARITY;
+			dcbSerialParameters.fOutxCtsFlow = FALSE;
+			dcbSerialParameters.fOutxDsrFlow = FALSE;
+			dcbSerialParameters.fRtsControl = RTS_CONTROL_DISABLE;
+			dcbSerialParameters.fDtrControl = DTR_CONTROL_DISABLE;
 
 			if (!SetCommState(handler, &dcbSerialParameters))
 			{
