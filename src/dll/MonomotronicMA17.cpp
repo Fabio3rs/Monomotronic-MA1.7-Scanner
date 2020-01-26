@@ -57,13 +57,13 @@ struct ECUConstantReadBools
 double decodeAirTemperature(int val)
 {
 	double b = val;
-	return 129.949770448 - 1.910061145 * b + 0.011346132 * b * b - 2.6406E-05 * b * b * b;
+	return 129.949 - 1.91 * b + 0.0113 * pow(b, 2.0) - 2.6406E-05 * pow(b, 3.0);
 }
 
 double decodeWaterTemperature(int val)
 {
 	double b = val;
-	return 126.752196049 - 1.832473888 * b + 0.010511937 * b * b - 2.4838E-05 * b * b * b;
+	return 126.752 - 1.832 * b + 0.0105 * pow(b, 2.0) - 2.4838E-05 * pow(b, 3.0);
 }
 
 struct fundata
