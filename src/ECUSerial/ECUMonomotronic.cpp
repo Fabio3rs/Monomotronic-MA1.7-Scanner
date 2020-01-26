@@ -119,6 +119,40 @@ void ECUMonomotronic::fprintlogging(std::fstream &fs)
 	bytesLogging.clear();
 }
 
+void ECUMonomotronic::strprintlogging(std::string &str)
+{
+	std::stringstream sstr;
+	//std::lock_guard<std::mutex> a(logm);
+	for (auto &b : bytesLogging)
+	{
+		sstr << GetDateAndTime(b.time) << " ";
+		if (b.act == 0)
+		{
+			sstr << "READ: " << std::hex << b.byte;
+
+			if (isalnum(b.byte) || isspace(b.byte))
+			{
+				sstr << "   " << (char)b.byte;
+			}
+
+			sstr << "\n";
+		}
+		else
+		{
+			sstr << "WRITE: " << std::hex << b.byte;
+
+			if (isalnum(b.byte) || isspace(b.byte))
+			{
+				sstr << "   " << (char)b.byte;
+			}
+
+			sstr << "\n";
+		}
+	}
+	bytesLogging.clear();
+	str += sstr.str();
+}
+
 void ECUMonomotronic::debug_regiter_err(const char *file, int line)
 {
 	debug_file = file;
@@ -289,38 +323,6 @@ std::string ECUMonomotronic::errorPacketToString(const ECUmmpacket &p, bool &pre
 	return std::string();
 }
 
-std::string ECUMonomotronic::getFrameTypeNameStr(int frame)
-{
-	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
-	//enum ECU_FRAMES_ID {
-	//	ECU_DATA_MEMORY_READ = 0x01, ECU_REQ_ACTUATOR = 0x04, ECU_CLEAR_ERRORS_CODE = 0x05, ECU_REQ_DIAGNOSIS_END = 0x06, ECU_READ_ERRORS_CODE = 0x07, ECU_ACK_CODE = 0x09, ECU_NOT_ACK_CODE = 0x0A,
-	//	ECU_INIT_STRING = 0xF6, ECU_REQUEST_ADC_CODE = 0xFB, ECU_ERROR_DATA_CODE = 0xFC, ECU_READ_DATA_CODE = 0xFE
-	//};
-
-	static const std::map<int, std::string> pktList = {
-				{ 0x01, "ECU_DATA_MEMORY_READ"},
-				{ 0x04, "ECU_REQ_ACTUATOR"},
-				{ 0x05, "ECU_CLEAR_ERRORS_CODE"},
-				{ 0x06, "ECU_REQ_DIAGNOSIS_END"},
-				{ 0x07, "ECU_READ_ERRORS_CODE"},
-				{ 0x09, "ECU_ACK_CODE" },
-				{ 0x0A, "ECU_NOT_ACK_CODE"},
-				{ 0xF6, "ECU_INIT_STRING"},
-				{ 0xFB, "ECU_REQUEST_ADC_CODE" },
-				{ 0xFC, "ECU_ERROR_DATA_CODE" },
-				{ 0xFE, "ECU_READ_DATA_CODE" }
-	};
-	
-	auto it = pktList.find(frame);
-
-	if (it != pktList.end())
-	{
-		return it->second;
-	}
-
-	return "";
-}
-
 template<int n>
 void sendInit(SerialPort &sp, int timeoutms, std::array<bool, n> v)
 {
@@ -362,8 +364,6 @@ void ECUMonomotronic::sendInitSequence()
 
 void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 {
-	// TODO: Improve packet counter
-	// Improve Error handling
 	auto lastpackettime = std::chrono::system_clock::now();
 
 	mm.ECUThreadCanAcceptCommands = false;
@@ -531,8 +531,7 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 						if (p.has_value())
 						{
-							//updatePacketCounter(mm, p.value());
-							mm.ECUPacketCounter = p.value().counter;
+							updatePacketCounter(mm, p.value());
 
 							mm.ECUResponse = std::move(p.value());
 
@@ -550,60 +549,52 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 						mm.ECUNewCommandAvailable = false;
 					}
 				}
-				else
+
+
+				auto now = std::chrono::system_clock::now();
+
+				auto diffms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastpackettime);
+				
+				if (diffms.count() > 1000)
 				{
-					auto now = std::chrono::system_clock::now();
+					mm.debug_regiter_err(__FILE__, __LINE__);
+					mm.ECUThreadErr = 5;
+					nError = true;
+				}
 
-					auto diffms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastpackettime);
+				if (diffms.count() > 500) // Keep the connection alive
+				{
+					// TODO: Improve it
+					// May have bugs
 
-					if (diffms.count() > 1000)
+					if (!mm.ECUWritePacket(ECU_ACK_CODE))
 					{
 						mm.debug_regiter_err(__FILE__, __LINE__);
-						mm.ECUThreadErr = 5;
+						mm.ECUThreadErr = 56;
 						nError = true;
 					}
-				}
-				
-
-				{
-					auto now = std::chrono::system_clock::now();
-
-					auto diffms = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastpackettime);
-
-					if (diffms.count() > 200) // Keep the connection alive
+					else
 					{
-						// TODO: Improve it
-						// May have bugs
+						std::optional<ECUmmpacket> p = mm.ECUReadPacket();
 
-						if (!mm.ECUWritePacket(ECU_ACK_CODE))
+						if (p.has_value())
 						{
-							mm.debug_regiter_err(__FILE__, __LINE__);
-							mm.ECUThreadErr = 6;
-							nError = true;
-						}
-						else
-						{
-							std::optional<ECUmmpacket> p = mm.ECUReadPacket();
+							mm.ECUPacketCounter = p.value().counter;
+							int code = p.value().frametypeid;
 
-							if (p.has_value())
+							if (code == ECU_ACK_CODE)
 							{
-								mm.ECUPacketCounter = p.value().counter;
-								int code = p.value().frametypeid;
-
-								if (code == ECU_ACK_CODE)
-								{
-									;
-								}
-								else
-								{
-									mm.debug_regiter_err(__FILE__, __LINE__);
-									mm.ECUThreadErr = 7;
-									nError = true;
-								}
+								//
 							}
-
-							lastpackettime = std::chrono::system_clock::now();
+							else
+							{
+								mm.debug_regiter_err(__FILE__, __LINE__);
+								mm.ECUThreadErr = 6;
+								nError = true;
+							}
 						}
+
+						lastpackettime = std::chrono::system_clock::now();
 					}
 				}
 			}
@@ -686,7 +677,7 @@ bool ECUMonomotronic::ECUWrite(uint8_t b)
 	return false;
 }
 
-ECUByte ECUMonomotronic::ECURead()
+ECUByte ECUMonomotronic::ECURead(int timeout)
 {
 	std::optional<uint8_t> result = sp.fastByteReadUSerialPort();
 
@@ -918,3 +909,8 @@ ECUMonomotronic::~ECUMonomotronic()
 	{
 		ECUThreadExit = true;
 	}
+
+	if (ECUThreadObj.joinable())
+		ECUThreadObj.join();
+}
+

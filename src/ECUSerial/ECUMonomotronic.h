@@ -36,6 +36,8 @@ SOFTWARE.
 #include <mutex>
 #include <array>
 #include <deque>
+#include <string>
+#include <sstream>
 #include <fstream>
 
 typedef std::optional<uint8_t> ECUByte;
@@ -112,7 +114,7 @@ class ECUMonomotronic
 	static void ECUThreadFun(ECUMonomotronic &mm);
 
 	bool							ECUWrite(uint8_t b);
-	ECUByte							ECURead();
+	ECUByte							ECURead(int timeout = 1000);
 	ECUByte							ECUReadResponse();
 	bool							ECUWriteResponse(uint8_t b);
 	std::vector<uint8_t>			ECUReadSequential(int size);
@@ -122,6 +124,7 @@ class ECUMonomotronic
 
 	void							printlogging();
 	void							fprintlogging(std::fstream &fs);
+	void							strprintlogging(std::string &str);
 
 	const char						*debug_file;
 	int								debug_line;
@@ -152,8 +155,6 @@ public:
 
 	// Error codes to description
 	static std::string				errorPacketToString(const ECUmmpacket &p, bool &present);
-
-	static std::string				getFrameTypeNameStr(int frame);
 
 	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
 	bool isThreadRunning() const { return ECUThreadRunning; }
