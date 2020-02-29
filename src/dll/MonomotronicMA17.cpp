@@ -270,7 +270,7 @@ extern "C" __declspec(dllexport) const char *getECUResponseStr()
 	std::lock_guard<std::mutex> lck(guardResponse);
 
 	if (ECUResponsestr.size() > 0)
-		tmpstr = std::move(ECUResponsestr);
+		tmpstr = ECUResponsestr;
 	else
 		tmpstr = "";
 
