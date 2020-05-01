@@ -537,7 +537,7 @@ bool ESP32Monomotronic::init()
 			this,        /* parameter of the task */
 			3,           /* priority of the task */
 			&Task1,      /* Task handle to keep track of created task */
-			0);          /* pin task to core 0 */
+			1);          /* pin task to core 1 - ESP32 uses core 0 as default to wifi handling*/
 	}
 	return false;
 }
