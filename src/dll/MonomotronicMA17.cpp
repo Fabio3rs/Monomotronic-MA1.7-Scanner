@@ -11,7 +11,6 @@
 #include <atomic>
 #include <sstream>
 #include <mutex>
-#include <fstream>
 #include <functional>
 #include <map>
 
@@ -114,161 +113,153 @@ void commandThread(ECUMonomotronic &ECUMgr)
 	bool readedErrors = false;
 
 	ECUConstantReadData internalData;
-    
-    try
-    {
-        while (continueECUActions)
-        {
-            if (ECUMgr.canAcceptCommands())
-            {
-                while (ECUMgr.isThreadRunning() && continueECUActions)
-                {
-                    if (!initPrinted)
-                    {
-                        std::cout << std::endl;
 
-                        std::cout << "ECU Init identify packets:" << std::endl;
-                        auto initPackets = ECUMgr.getinitPackets();
-                        for (int i = 0; i < initPackets.size(); i++)
-                        {
-                            if (initPackets[i].frametypeid == 0xF6)
-                            {
-                                std::string str(initPackets[i].data.begin(), initPackets[i].data.end());
+	while (continueECUActions)
+	{
+		if (ECUMgr.canAcceptCommands())
+		{
+			while (ECUMgr.isThreadRunning() && ECUMgr.isECUConnectedNow() && continueECUActions)
+			{
+				if (!initPrinted)
+				{
+					std::cout << std::endl;
 
-                                ECUWelcome += str;
-                                ECUWelcome += "\n";
-                            }
-                        }
+					std::cout << "ECU Init identify packets:" << std::endl;
+					auto initPackets = ECUMgr.getinitPackets();
+					for (int i = 0; i < initPackets.size(); i++)
+					{
+						if (initPackets[i].frametypeid == 0xF6)
+						{
+							std::string str(initPackets[i].data.begin(), initPackets[i].data.end());
 
-                        ECUMgrPrinted = true;
-                        initPrinted = true;
-                    }
+							ECUWelcome += str;
+							ECUWelcome += "\n";
+						}
+					}
 
-                    int reqval = request;
-                    if (reqval != -1)
-                    {
-                        switch (reqval)
-                        {
-                        case 0:
-                        {
-                            std::optional<std::deque<ECUmmpacket>> errorsList = ECUMgr.ECUReadErrors();
-                            std::stringstream sstr;
-                            if (errorsList)
-                            {
-                                sstr << "Read errors sent" << std::endl;
+					ECUMgrPrinted = true;
+					initPrinted = true;
+				}
 
-                                for (ECUmmpacket &e : errorsList.value())
-                                {
-                                    sstr << "ECU frame nº " << std::dec << (int)e.counter << std::endl;
-                                    sstr << "ECU frame type " << std::hex << (int)e.frametypeid << std::endl;
-                                    sstr << "ECU frame data ";
+				int reqval = request;
+				if (reqval != -1)
+				{
+					switch (reqval)
+					{
+					case 0:
+					{
+						std::optional<std::deque<ECUmmpacket>> errorsList = ECUMgr.ECUReadErrors();
+						std::stringstream sstr;
+						if (errorsList)
+						{
+							sstr << "Read errors sent" << std::endl;
 
-                                    for (auto &b : e.data)
-                                    {
-                                        sstr << std::hex << (int)b << " ";
-                                    }
+							for (ECUmmpacket &e : errorsList.value())
+							{
+								sstr << "ECU frame nº " << std::dec << (int)e.counter << std::endl;
+								sstr << "ECU frame type " << std::hex << (int)e.frametypeid << std::endl;
+								sstr << "ECU frame data ";
 
-                                    sstr << std::endl;
+								for (auto &b : e.data)
+								{
+									sstr << std::hex << (int)b << " ";
+								}
 
-                                    bool present = false;
+								sstr << std::endl;
 
-                                    sstr << "Description: " << ECUMgr.errorPacketToString(e, present) << std::endl;
-                                    sstr << "Present: " << std::boolalpha << present << std::endl;
-                                    sstr << std::endl;
-                                }
+								bool present = false;
 
-                                readedErrors = true;
-                            }
-                            else
-                            {
-                                sstr << "Send unavaible yet\n";
-                            }
+								sstr << "Description: " << ECUMgr.errorPacketToString(e, present) << std::endl;
+								sstr << "Present: " << std::boolalpha << present << std::endl;
+								sstr << std::endl;
+							}
 
-                            {
-                                std::lock_guard<std::mutex> lck(guardResponse);
-                                ECUResponsestr = sstr.str();
-                            }
+							readedErrors = true;
+						}
+						else
+						{
+							sstr << "Send unavaible yet\n";
+						}
 
-                            request = 2;
-                        }
-                            break;
+						{
+							std::lock_guard<std::mutex> lck(guardResponse);
+							ECUResponsestr = sstr.str();
+						}
 
-                        case 1:
-                        {
-                            std::optional<ECUmmpacket> clsrep = ECUMgr.ECUCleanErrors();
+						request = 2;
+					}
+						break;
 
-                            if (clsrep)
-                            {
-                                std::lock_guard<std::mutex> lck(guardResponse);
-                                ECUResponsestr = "Clear errors sent\n";
-                            }
-                            else
-                            {
-                                std::lock_guard<std::mutex> lck(guardResponse);
-                                ECUResponsestr = "Clear errors failed\n";
-                            }
+					case 1:
+					{
+						std::optional<ECUmmpacket> clsrep = ECUMgr.ECUCleanErrors();
 
-                            request = 2;
-                        }
-                            break;
+						if (clsrep)
+						{
+							std::lock_guard<std::mutex> lck(guardResponse);
+							ECUResponsestr = "Clear errors sent\n";
+						}
+						else
+						{
+							std::lock_guard<std::mutex> lck(guardResponse);
+							ECUResponsestr = "Clear errors failed\n";
+						}
 
-                        case 2:
-                        {
-                            for (auto &dt : ECUFunctions)
-                            {
-                                bool mustRead = false;
-                                {
-                                    std::lock_guard<std::mutex> lck(cgMustRead);
-                                    mustRead = dt.second.mustRead;
-                                }
+						request = 2;
+					}
+						break;
 
-                                if (mustRead)
-                                {
-                                    std::lock_guard<std::mutex> lck(ecufunlock);
+					case 2:
+					{
+						for (auto &dt : ECUFunctions)
+						{
+							bool mustRead = false;
+							{
+								std::lock_guard<std::mutex> lck(cgMustRead);
+								mustRead = dt.second.mustRead;
+							}
 
-                                    if (std::optional<std::deque<ECUmmpacket>> sensorData = ECUMgr.ECUReadSensor(0x63))
-                                    {
-                                        for (ECUmmpacket& e : sensorData.value())
-                                        {
-                                            if (e.frametypeid != 9)
-                                            {
-                                                for (auto& b : e.data)
-                                                {
-                                                    dt.second.lastRawDataRead = b;
-                                                    dt.second.lastDataRead = dt.second.decoder_fun(b);
-                                                }
+							if (mustRead)
+							{
+								//std::lock_guard<std::mutex> lck(ecufunlock);
 
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        MessageBoxA(0, "Read sensor data error", "ERROR", 0);
-                                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                                        continueECUActions = false;
+								if (std::optional<std::deque<ECUmmpacket>> sensorData = ECUMgr.ECUReadSensor(0x63))
+								{
+									for (ECUmmpacket& e : sensorData.value())
+									{
+										if (e.frametypeid != 9)
+										{
+											for (auto& b : e.data)
+											{
+												dt.second.lastRawDataRead = b;
+												dt.second.lastDataRead = dt.second.decoder_fun(b);
+											}
 
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                            break;
+										}
+									}
+								}
+								else
+								{
+									MessageBoxA(0, "Read sensor data error", "ERROR", 0);
+									std::this_thread::sleep_for(std::chrono::milliseconds(100));
+									continueECUActions = false;
 
-                        default:
-                            break;
-                        }
-                    }
-                }
-            }
+									break;
+								}
+							}
+						}
+					}
+						break;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-    }
-    catch(const std::exception& e)
-    {
-        std::fstream dllerr("dllexception.log", std::ios::out | std::ios::trunc);
-        dllerr << e.what() << std::endl;
-    }
+					default:
+						break;
+					}
+				}
+			}
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
 }
 
 
@@ -276,12 +267,14 @@ extern "C" __declspec(dllexport) const char *getECUResponseStr()
 {
 	static std::string tmpstr;
 
-	std::lock_guard<std::mutex> lck(guardResponse);
+	{
+		std::lock_guard<std::mutex> lck(guardResponse);
 
-	if (ECUResponsestr.size() > 0)
-		tmpstr = ECUResponsestr;
-	else
-		tmpstr = "";
+		if (ECUResponsestr.size() > 0)
+			tmpstr = ECUResponsestr;
+		else
+			tmpstr = "";
+	}
 
 	return tmpstr.c_str();
 }
@@ -345,6 +338,7 @@ extern "C" __declspec(dllexport) bool initECU()
 			internalCommThread.join();
 
 		ECUManager->init();
+		ECUManager->shouldTryAutoConnect(true);
 
 		internalCommThread = std::thread(commandThread, std::ref(*ECUManager.get()));
 		return true;
