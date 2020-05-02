@@ -212,6 +212,16 @@ std::optional<std::deque<ECUmmpacket>> ECUMonomotronic::ECURequestData(uint8_t f
 	return std::nullopt;
 }
 
+void ECUMonomotronic::resetToNCKnownState()
+{
+	ECUInited = false;
+	KeepECUConnectionAlive = true;
+	ECUThreadState = 0;
+	ECUThreadErr = 0;
+	ECUPacketCounter = 0;
+	ECUThreadShouldProceed = false;
+}
+
 std::optional<ECUmmpacket> ECUMonomotronic::getECUResponse()
 {
 	if (ECUCommandResultAvailable)
@@ -335,9 +345,6 @@ void sendInit(SerialPort &sp, int timeoutms, std::array<bool, n> v)
 
 void ECUMonomotronic::ECUOpenThread()
 {
-	if (ECUThreadObj.joinable())
-		ECUThreadObj.join();
-
 	if (!ECUThreadRunning)
 	{
 		ECUThreadExit = false;
@@ -351,6 +358,11 @@ void ECUMonomotronic::ECUOpenThread()
 		ECUThreadRunning = true;
 
 		std::cout << "SetThreadPriority " << SetThreadPriority(ECUThreadObj.native_handle(), THREAD_PRIORITY_TIME_CRITICAL) << std::endl;
+	}
+	else
+	{
+		if (ECUThreadObj.joinable())
+			ECUThreadObj.join();
 	}
 }
 
@@ -368,8 +380,22 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 
 	mm.ECUThreadCanAcceptCommands = false;
 
+	bool connectedNow = false;
+	mm.ECUConnectedNow = false;
+
 	while (!mm.ECUThreadExit)
 	{
+		if (!connectedNow)
+		{
+			mm.ECUConnectedNow = connectedNow;
+
+			if (!mm.ECUThreadShouldProceed)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				continue;
+			}
+		}
+
 		int state = mm.ECUThreadState;
 		bool ECUSendSyncCode = false;
 
@@ -469,6 +495,8 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			if (!nError)
 			{
 				int code = 0;
+
+				mm.initPackets.clear();
 				do
 				{
 					std::optional<ECUmmpacket> p = mm.ECUReadPacket();
@@ -504,8 +532,12 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 				} while (true);
 			}
 
-
 			lastpackettime = std::chrono::system_clock::now();
+			if (!nError)
+			{
+				connectedNow = true;
+				mm.ECUConnectedNow = connectedNow;
+			}
 			mm.ECUThreadCanAcceptCommands = true;
 		}
 			mm.ECUThreadState++;
@@ -605,6 +637,20 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			}
 			break;
 
+		case 2:
+			mm.ECUInited = false;
+
+			nError = false;
+
+			connectedNow = false;
+			mm.ECUConnectedNow = connectedNow;
+			mm.ECUThreadState = 0;
+
+			mm.resetToNCKnownState();
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			break;
+
 		default:
 			// Debug code
 			std::cout << "Default " << mm.ECUThreadErr << std::endl;
@@ -630,6 +676,9 @@ void ECUMonomotronic::ECUThreadFun(ECUMonomotronic &mm)
 			mm.ECUThreadState = 0;
 			mm.ECUThreadErr = 0;
 			mm.ECUPacketCounter = 0;
+
+			connectedNow = false;
+			mm.ECUConnectedNow = connectedNow;
 			return;
 			break;
 		}
@@ -896,6 +945,8 @@ ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept 
 	ECUNewCommandAvailable = false;
 	ECUCommandResultAvailable = false;
 	ECUThreadCanAcceptCommands = false;
+
+	ECUThreadShouldProceed = false;
 
 	bytesLogging.reserve(2048);
 

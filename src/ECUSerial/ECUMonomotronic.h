@@ -77,6 +77,9 @@ class ECUMonomotronic
 
 	bool					enableLog;
 
+	std::atomic<bool>		ECUConnectedNow;
+	std::atomic<bool>		ECUThreadShouldProceed;
+
 	//						send commands variables
 	std::atomic<bool>		ECUThreadCanAcceptCommands;
 	std::mutex				ECUNewCommandMutex;
@@ -133,6 +136,8 @@ class ECUMonomotronic
 
 	std::optional<std::deque<ECUmmpacket>>		ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data = std::vector<uint8_t>());
 
+	void							resetToNCKnownState();
+
 public:
 
 	// Init received packages/ECU identification
@@ -159,6 +164,9 @@ public:
 	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
 	bool isThreadRunning() const { return ECUThreadRunning; }
 	bool portIsOpen() const noexcept { return sp.isConnected(); };
+
+	bool isECUConnectedNow() const { return ECUConnectedNow; }
+	void shouldTryAutoConnect(bool b) { ECUThreadShouldProceed = b; };
 
 	int getECUThreadError() const noexcept { return ECUThreadErr; }
 
