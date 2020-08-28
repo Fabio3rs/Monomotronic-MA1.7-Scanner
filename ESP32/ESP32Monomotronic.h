@@ -59,27 +59,40 @@ public:
 		return hasv;
 	}
 	
-	bool operator==(const T& val2)
-	{
-		if (hasv)
-			return val == val2;
-		
-		return false;
-	}
-
-	optional &operator=(const T &v)
+	optional<T> &operator=(const T &v)
 	{
 		val = v;
 		hasv = true;
+		
+		return *this;
+	}
+	
+	optional<T> &operator=(const optional<T> &opt)
+	{
+		if (opt.hasv)
+			val = opt.val;
+		
+		hasv = opt.hasv;
 
 		return *this;
 	}
-
-	optional &operator=(const T &&v)
+	
+	optional<T> &operator=(T &&v)
 	{
 		val = std::move(v);
 		hasv = true;
-
+		
+		return *this;
+	}
+	
+	optional<T> &operator=(optional<T> &&opt)
+	{
+		if (opt.hasv)
+			val = std::move(opt.val);
+		
+		hasv = opt.hasv;
+		opt.hasv = false;
+		
 		return *this;
 	}
 
@@ -140,6 +153,14 @@ class ESP32Monomotronic
 	std::mutex									getResultCommandMutex;
 	std::deque<ECUmmpacket>						lastCommandPackets;
 	bool										newCommandPacketsAvailable;
+	std::atomic<bool>							ECUThreadCanAcceptCommands;
+	std::mutex									ECUNewCommandMutex;
+	ECUmmpacket									ECUNewCommandTemp;
+	std::atomic<bool>							ECUNewCommandAvailable;
+	std::atomic<bool>							ECUWaitAndReconnect;
+
+	std::atomic<bool>		ECUCommandResultAvailable;
+	ECUmmpacket				ECUResponse;
 
 	int ECUPacketCounter;
 
@@ -229,6 +250,11 @@ public:
 		return nullptr;
 	}
 
+	// Custom commands
+	// See ECU_FRAMES_ID
+	optional<ECUmmpacket>						getECUResponse();
+	bool										sendECURequest(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+
 	eTaskState getThreadState()
 	{
 		if (inited)
@@ -236,12 +262,21 @@ public:
 		return eDeleted;
 	}
 
+	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+
+	// Wrapper to commands
+	optional<std::deque<ECUmmpacket>>		ECUReadErrors();
+	optional<std::deque<ECUmmpacket>>		ECUReadSensor(uint8_t sensorID);
+	optional<ECUmmpacket>					ECUCleanErrors();
+
 	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
 	enum ECU_FRAMES_ID {
 		ECU_DATA_MEMORY_READ = 0x01, ECU_REQ_ACTUATOR = 0x04, ECU_CLEAR_ERRORS_CODE = 0x05, ECU_REQ_DIAGNOSIS_END = 0x06, ECU_READ_ERRORS_CODE = 0x07, ECU_ACK_CODE = 0x09, ECU_NOT_ACK_CODE = 0x0A,
 		ECU_INIT_STRING = 0xF6, ECU_REQUEST_ADC_CODE = 0xFB, ECU_ERROR_DATA_CODE = 0xFC, ECU_READ_DATA_CODE = 0xFE
 	};
 
+	// Error codes to description
+	static const char*						errorPacketToString(const ECUmmpacket &p, bool &present);
 
 	bool init();
 
