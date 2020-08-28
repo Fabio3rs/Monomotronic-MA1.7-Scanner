@@ -289,18 +289,19 @@ bool ESP32Monomotronic::sendECURequest(uint8_t frameid, const std::vector<uint8_
 
 optional<std::deque<ECUmmpacket>> ESP32Monomotronic::ECUReadErrors()
 {
-	return ECURequestData(ECU_READ_ERRORS_CODE, ECU_ERROR_DATA_CODE);
+	return ECURequestData(ECU_READ_ERRORS_CODE, ECU_ERROR_DATA_CODE); // See the ECU_FRAMES_ID enum
 }
 
 optional<std::deque<ECUmmpacket>> ESP32Monomotronic::ECUReadSensor(uint8_t sensorID)
 {
-	return ECURequestData(ECU_DATA_MEMORY_READ, ECU_READ_DATA_CODE, { 0x01u, 0x00u, sensorID });
+	return ECURequestData(ECU_DATA_MEMORY_READ, ECU_READ_DATA_CODE, { 0x01u, 0x00u, sensorID }); // See the ECU_FRAMES_ID enum
 }
 
 optional<ECUmmpacket> ESP32Monomotronic::ECUCleanErrors()
 {
 	/*
 	TODO: Handle errors, implement timeout
+	TODO: Force the connection restart after clean the errors
 	*/
 	if (canAcceptCommands())
 	{
@@ -371,8 +372,24 @@ const char* ESP32Monomotronic::errorPacketToString(const ECUmmpacket &p, bool &p
 	return "";
 }
 
+/****
+* Function to comunicate with the ECU from other thread
+* Implements ACK responses
+* uint8_t frameid/uint8_t eECUFrameID. See the ECU_FRAMES_ID enum
+*/
 optional<std::deque<ECUmmpacket>> ESP32Monomotronic::ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data, int timeout)
 {
+    /*
+    * send request
+    * receive data
+    * ack
+    * receive data
+    * ack
+    * receive data
+    * ack
+    * ...
+    * ecu ack
+    */
 	if (sendECURequest(frameid, data))
 	{
 		std::deque<ECUmmpacket>					ecup;
@@ -422,6 +439,12 @@ optional<std::deque<ECUmmpacket>> ESP32Monomotronic::ECURequestData(uint8_t fram
 	return nullopt;
 }
 
+/*
+* ECU comunication thread
+* Handles init
+* Handles sending a receiving data from serial
+* Handles sending ACK to keep the communication alive
+*/
 void ESP32Monomotronic::commThread(void *vpmm)
 {
 	ESP32Monomotronic &mm = *(ESP32Monomotronic*)vpmm;
@@ -457,20 +480,30 @@ void ESP32Monomotronic::commThread(void *vpmm)
 		
 		if (connect)
 		{
+            /*
+                Preparation to init
+            */
 			mm.taskState = 0;
 
 			uint8_t key1 = 0, key2 = 0, key3 = 0, key4 = 0;
-while (Serial2.available() > 0)
-         {
-            Serial2.read();
-				delay(10);
-          }
+            while (Serial2.available() > 0)
+            {
+                Serial2.read();
+                delay(10);
+            }
+            
             Serial2.flush();
-
+            
+            /*
+            Send 5 baud init code to the ECU
+            */
 			baudInit();
 			int state = 0;
             ECUSendSyncCode = false;
             
+			/*
+			Handles connection keys
+			*/
             tries = 0;
 			mm.taskState = 1;
 			for (int i = 0; i < 30 && state != 5; i++)
@@ -531,14 +564,18 @@ while (Serial2.available() > 0)
 			if (state > 1)
 			{
 				delay(10);
-        while (Serial2.available() > 0)
-         {
-            Serial2.read();
-            Serial2.flush();
-          }
+				
+				// Discards leftover data on serial buffer
+				while (Serial2.available() > 0)
+				{
+					Serial2.read();
+					Serial2.flush();
+				}
+				
+				// Response inverted ECU Key to confirm the data were received correctly
 				if (!mm.ECUWrite(~key2 & 0xFF))
 				{
-           CLog::l().logwrite(std::string("Code is Key2 ") + String(~key2, HEX).c_str());
+           			CLog::l().logwrite(std::string("Code is Key2 ") + String(~key2, HEX).c_str());
 					mm.debug_regiter_err(__FILE__, __LINE__);
 					mm.ECUThreadErr = 1;
 					nError = true;
@@ -548,6 +585,8 @@ while (Serial2.available() > 0)
 					mm.taskState = 2;
 					mm.ECUConnected = true;
 				}
+				
+				
                 Serial2.flush();
 			}
 			else
@@ -557,7 +596,10 @@ while (Serial2.available() > 0)
 				nError = true;
 				delay(100);
 			}
-
+			
+			/*
+				Get ECU Welcome message packets with the name and serial			
+			*/
 			if (!nError)
 			{
 				int code = 0;
@@ -614,9 +656,15 @@ while (Serial2.available() > 0)
 				mm.taskState = 3;
 			}
 
-
+			/*
+			Connection success
+			*/
 			if (!nError)
 			{
+				/*
+				Keep the connection alive
+				Manages send and receiving data
+				*/
 				mm.initPacketsOk = true;
 				mm.taskState = 4;
 				mm.ECUThreadCanAcceptCommands = true;
@@ -705,18 +753,20 @@ while (Serial2.available() > 0)
 						lastPacketTime = millis();
 					}
 					/*
-					TODO: Manage connection, request data
-					Send ACKs
+					TODO: improve the code
 					*/
 					delay(50);
 				}
 			}
 		}
 	}
-
-
 }
 
+
+/*
+* Resets the data once
+* Starts the thread once
+*/
 bool ESP32Monomotronic::init()
 {
 	if (!inited)
