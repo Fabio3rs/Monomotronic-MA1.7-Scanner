@@ -25,24 +25,21 @@ SOFTWARE.
 */
 #include <Arduino.h>
 #include <mutex>
-#include <thread>
 #include <string>
+#include <thread>
 
-class CLog
-{
-	std::string a;
-	CLog();
-	std::mutex m;
-	
-public:
-	static CLog &l();
-	const std::string &getContent() const { return a; };
-	void logclear()
-	{
-		std::lock_guard<std::mutex> lck(m);
-		a.clear();
-	}
-	
-	void logwrite(const std::string &s);
+class CLog {
+    std::string a;
+    CLog();
+    std::mutex m;
+
+  public:
+    static CLog &l();
+    const std::string &getContent() const { return a; };
+    void logclear() {
+        std::lock_guard<std::mutex> lck(m);
+        a.clear();
+    }
+
+    void logwrite(const std::string &s);
 };
-

@@ -1,4 +1,4 @@
-﻿namespace Monomotronic_MA1._7_Scanner
+namespace Monomotronic_MA1._7_Scanner
 {
     partial class Form1
     {

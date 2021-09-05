@@ -29,160 +29,166 @@ SOFTWARE.
 */
 
 #include "SerialPort.h"
-#include <vector>
-#include <thread>
+#include <array>
 #include <atomic>
 #include <chrono>
-#include <mutex>
-#include <array>
 #include <deque>
-#include <string>
-#include <sstream>
 #include <fstream>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 
 typedef std::optional<uint8_t> ECUByte;
 
-struct ECUmmpacket
-{
-	uint8_t size;
-	uint8_t counter;
-	uint8_t frametypeid;
+struct ECUmmpacket {
+    uint8_t size;
+    uint8_t counter;
+    uint8_t frametypeid;
 
-	std::vector<uint8_t> data;
+    std::vector<uint8_t> data;
 
-	uint8_t end;
+    uint8_t end;
 
-	ECUmmpacket &operator=(ECUmmpacket&&) = default;
-	ECUmmpacket &operator=(const ECUmmpacket&) = default;
-	ECUmmpacket(ECUmmpacket&&) = default;
-	ECUmmpacket(const ECUmmpacket&) = default;
+    ECUmmpacket &operator=(ECUmmpacket &&) = default;
+    ECUmmpacket &operator=(const ECUmmpacket &) = default;
+    ECUmmpacket(ECUmmpacket &&) = default;
+    ECUmmpacket(const ECUmmpacket &) = default;
 
-	ECUmmpacket() : size(3), counter(0), frametypeid(0), end(0x03)
-	{
-
-	}
+    ECUmmpacket() : size(3), counter(0), frametypeid(0), end(0x03) {}
 };
 
-class ECUMonomotronic
-{
-	SerialPort				sp;
-	std::thread				ECUThreadObj;
-	std::atomic<bool>		ECUThreadRunning;
-	std::atomic<bool>		ECUThreadExit;
-	std::atomic<int>		ECUThreadState;
-	std::atomic<int>		ECUThreadErr;
-	std::atomic<bool>		ECUInited;
-	std::atomic<bool>		KeepECUConnectionAlive;
-	uint8_t					ECUPacketCounter;
+class ECUMonomotronic {
+    SerialPort sp;
+    std::thread ECUThreadObj;
+    std::atomic<bool> ECUThreadRunning;
+    std::atomic<bool> ECUThreadExit;
+    std::atomic<int> ECUThreadState;
+    std::atomic<int> ECUThreadErr;
+    std::atomic<bool> ECUInited;
+    std::atomic<bool> KeepECUConnectionAlive;
+    uint8_t ECUPacketCounter;
 
-	bool					enableLog;
+    bool enableLog;
 
-	std::atomic<bool>		ECUConnectedNow;
-	std::atomic<bool>		ECUThreadShouldProceed;
+    std::atomic<bool> ECUConnectedNow;
+    std::atomic<bool> ECUThreadShouldProceed;
 
-	//						send commands variables
-	std::atomic<bool>		ECUThreadCanAcceptCommands;
-	std::mutex				ECUNewCommandMutex;
-	ECUmmpacket				ECUNewCommandTemp;
-	std::atomic<bool>		ECUNewCommandAvailable;
+    //						send commands variables
+    std::atomic<bool> ECUThreadCanAcceptCommands;
+    std::mutex ECUNewCommandMutex;
+    ECUmmpacket ECUNewCommandTemp;
+    std::atomic<bool> ECUNewCommandAvailable;
 
-	std::atomic<bool>		ECUCommandResultAvailable;
-	ECUmmpacket				ECUResponse;
+    std::atomic<bool> ECUCommandResultAvailable;
+    ECUmmpacket ECUResponse;
 
-	std::deque<ECUmmpacket> initPackets;
+    std::deque<ECUmmpacket> initPackets;
 
-	struct blogging {
-		std::chrono::high_resolution_clock::time_point time;
-		int act;
-		int byte;
+    struct blogging {
+        std::chrono::high_resolution_clock::time_point time;
+        int act;
+        int byte;
 
-		blogging(int a, int b)
-		{
-			time = std::chrono::high_resolution_clock::now();
-			act = a;
-			byte = b;
-		}
-	};
+        blogging(int a, int b) {
+            time = std::chrono::high_resolution_clock::now();
+            act = a;
+            byte = b;
+        }
+    };
 
-	std::vector<blogging> bytesLogging;
+    std::vector<blogging> bytesLogging;
 
-	void addbytelog(const blogging &b)
-	{
-		bytesLogging.push_back(b);
-	}
+    void addbytelog(const blogging &b) { bytesLogging.push_back(b); }
 
-	void ECUOpenThread();
-	void sendInitSequence();
-	static void updatePacketCounter(ECUMonomotronic &mm, const ECUmmpacket &p);
-	static void ECUThreadFun(ECUMonomotronic &mm);
+    void ECUOpenThread();
+    void sendInitSequence();
+    static void updatePacketCounter(ECUMonomotronic &mm, const ECUmmpacket &p);
+    static void ECUThreadFun(ECUMonomotronic &mm);
 
-	bool							ECUWrite(uint8_t b);
-	ECUByte							ECURead(int timeout = 1000);
-	ECUByte							ECUReadResponse();
-	bool							ECUWriteResponse(uint8_t b);
-	std::vector<uint8_t>			ECUReadSequential(int size);
-	bool							ECUWriteSequential(const std::vector<uint8_t> &data);
-	std::optional<ECUmmpacket>		ECUReadPacket();
-	bool							ECUWritePacket(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+    bool ECUWrite(uint8_t b);
+    ECUByte ECURead(int timeout = 1000);
+    ECUByte ECUReadResponse();
+    bool ECUWriteResponse(uint8_t b);
+    std::vector<uint8_t> ECUReadSequential(int size);
+    bool ECUWriteSequential(const std::vector<uint8_t> &data);
+    std::optional<ECUmmpacket> ECUReadPacket();
+    bool
+    ECUWritePacket(uint8_t frameid,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>());
 
-	void							printlogging();
-	void							fprintlogging(std::fstream &fs);
-	void							strprintlogging(std::string &str);
+    void printlogging();
+    void fprintlogging(std::fstream &fs);
+    void strprintlogging(std::string &str);
 
-	const char						*debug_file;
-	int								debug_line;
+    const char *debug_file;
+    int debug_line;
 
-	void							debug_regiter_err(const char *file, int line);
+    void debug_regiter_err(const char *file, int line);
 
-	std::optional<std::deque<ECUmmpacket>>		ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+    std::optional<std::deque<ECUmmpacket>>
+    ECURequestData(uint8_t frameid, uint8_t eECUFrameID,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>());
 
-	void							resetToNCKnownState();
+    void resetToNCKnownState();
 
-public:
+  public:
+    // Init received packages/ECU identification
+    const std::deque<ECUmmpacket> &getinitPackets() const {
+        return initPackets;
+    };
 
-	// Init received packages/ECU identification
-	const std::deque<ECUmmpacket>	&getinitPackets() const { return initPackets; };
+    // Custom commands
+    // See ECU_FRAMES_ID
+    std::optional<ECUmmpacket> getECUResponse();
+    bool
+    sendECURequest(uint8_t frameid,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>());
 
-	// Custom commands
-	// See ECU_FRAMES_ID
-	std::optional<ECUmmpacket>		getECUResponse();
-	bool							sendECURequest(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+    // Wrapper to commands
+    std::optional<std::deque<ECUmmpacket>> ECUReadErrors();
+    std::optional<std::deque<ECUmmpacket>> ECUReadSensor(uint8_t sensorID);
+    std::optional<ECUmmpacket> ECUCleanErrors();
 
+    // Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
+    enum ECU_FRAMES_ID {
+        ECU_DATA_MEMORY_READ = 0x01,
+        ECU_REQ_ACTUATOR = 0x04,
+        ECU_CLEAR_ERRORS_CODE = 0x05,
+        ECU_REQ_DIAGNOSIS_END = 0x06,
+        ECU_READ_ERRORS_CODE = 0x07,
+        ECU_ACK_CODE = 0x09,
+        ECU_NOT_ACK_CODE = 0x0A,
+        ECU_INIT_STRING = 0xF6,
+        ECU_REQUEST_ADC_CODE = 0xFB,
+        ECU_ERROR_DATA_CODE = 0xFC,
+        ECU_READ_DATA_CODE = 0xFE
+    };
 
-	// Wrapper to commands
-	std::optional<std::deque<ECUmmpacket>>		ECUReadErrors();
-	std::optional<std::deque<ECUmmpacket>>		ECUReadSensor(uint8_t sensorID);
-	std::optional<ECUmmpacket>					ECUCleanErrors();
+    // Error codes to description
+    static std::string errorPacketToString(const ECUmmpacket &p, bool &present);
 
-	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
-	enum ECU_FRAMES_ID { ECU_DATA_MEMORY_READ = 0x01, ECU_REQ_ACTUATOR = 0x04, ECU_CLEAR_ERRORS_CODE = 0x05, ECU_REQ_DIAGNOSIS_END = 0x06, ECU_READ_ERRORS_CODE = 0x07, ECU_ACK_CODE = 0x09, ECU_NOT_ACK_CODE = 0x0A,
-						ECU_INIT_STRING = 0xF6, ECU_REQUEST_ADC_CODE = 0xFB, ECU_ERROR_DATA_CODE = 0xFC, ECU_READ_DATA_CODE = 0xFE};
+    bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+    bool isThreadRunning() const { return ECUThreadRunning; }
+    bool portIsOpen() const noexcept { return sp.isConnected(); };
 
-	// Error codes to description
-	static std::string				errorPacketToString(const ECUmmpacket &p, bool &present);
+    bool isECUConnectedNow() const { return ECUConnectedNow; }
+    void shouldTryAutoConnect(bool b) { ECUThreadShouldProceed = b; };
 
-	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
-	bool isThreadRunning() const { return ECUThreadRunning; }
-	bool portIsOpen() const noexcept { return sp.isConnected(); };
+    int getECUThreadError() const noexcept { return ECUThreadErr; }
 
-	bool isECUConnectedNow() const { return ECUConnectedNow; }
-	void shouldTryAutoConnect(bool b) { ECUThreadShouldProceed = b; };
+    // Interface controls
+    void init();
+    void forcestop();
+    void stop();
 
-	int getECUThreadError() const noexcept { return ECUThreadErr; }
+    // Debugging
+    void debugTofile();
+    void purgeSerial();
 
-	// Interface controls
-	void init();
-	void forcestop();
-	void stop();
-
-	// Debugging
-	void debugTofile();
-	void purgeSerial();
-	
-	ECUMonomotronic(const char *port, bool enableLogging = true) noexcept;
-	~ECUMonomotronic();
+    ECUMonomotronic(const char *port, bool enableLogging = true) noexcept;
+    ~ECUMonomotronic();
 };
-
 
 #endif
-

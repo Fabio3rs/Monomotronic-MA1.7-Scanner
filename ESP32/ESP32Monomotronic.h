@@ -28,259 +28,233 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <mutex>
+#include "Arduino.h"
 #include <atomic>
 #include <cstdint>
-#include <vector>
-#include <atomic>
 #include <deque>
+#include <mutex>
 #include <thread>
-#include "Arduino.h"
+#include <vector>
 
-class nulloptional
-{
-
-};
+class nulloptional {};
 
 static nulloptional nullopt;
 
-template<class T>
-class optional
-{
-	T val;
-	bool hasv;
+template <class T> class optional {
+    T val;
+    bool hasv;
 
-public:
-	T &value() { return val; };
-	bool has_value() const { return hasv; };
+  public:
+    T &value() { return val; };
+    bool has_value() const { return hasv; };
 
-	operator bool() const
-	{
-		return hasv;
-	}
-	
-	optional<T> &operator=(const T &v)
-	{
-		val = v;
-		hasv = true;
-		
-		return *this;
-	}
-	
-	optional<T> &operator=(const optional<T> &opt)
-	{
-		if (opt.hasv)
-			val = opt.val;
-		
-		hasv = opt.hasv;
+    operator bool() const { return hasv; }
 
-		return *this;
-	}
-	
-	optional<T> &operator=(T &&v)
-	{
-		val = std::move(v);
-		hasv = true;
-		
-		return *this;
-	}
-	
-	optional<T> &operator=(optional<T> &&opt)
-	{
-		if (opt.hasv)
-			val = std::move(opt.val);
-		
-		hasv = opt.hasv;
-		opt.hasv = false;
-		
-		return *this;
-	}
+    optional<T> &operator=(const T &v) {
+        val = v;
+        hasv = true;
 
-	optional(const optional&) = default;
-	optional(optional&&) = default;
-	optional(T &&v) : hasv(true), val(std::move(v)) {   }
-	optional(const T &v) : hasv(true), val(v) {   }
-	optional() : hasv(false) {   }
-	optional(const nulloptional &n) : hasv(false) {   }
+        return *this;
+    }
+
+    optional<T> &operator=(const optional<T> &opt) {
+        if (opt.hasv)
+            val = opt.val;
+
+        hasv = opt.hasv;
+
+        return *this;
+    }
+
+    optional<T> &operator=(T &&v) {
+        val = std::move(v);
+        hasv = true;
+
+        return *this;
+    }
+
+    optional<T> &operator=(optional<T> &&opt) {
+        if (opt.hasv)
+            val = std::move(opt.val);
+
+        hasv = opt.hasv;
+        opt.hasv = false;
+
+        return *this;
+    }
+
+    optional(const optional &) = default;
+    optional(optional &&) = default;
+    optional(T &&v) : hasv(true), val(std::move(v)) {}
+    optional(const T &v) : hasv(true), val(v) {}
+    optional() : hasv(false) {}
+    optional(const nulloptional &n) : hasv(false) {}
 };
 
 typedef optional<uint8_t> ECUByte;
 
-struct ECUmmpacket
-{
-	uint8_t size;
-	uint8_t counter;
-	uint8_t frametypeid;
+struct ECUmmpacket {
+    uint8_t size;
+    uint8_t counter;
+    uint8_t frametypeid;
 
-	std::vector<uint8_t> data;
+    std::vector<uint8_t> data;
 
-	uint8_t end;
-	
-	ECUmmpacket &operator=(ECUmmpacket&&) = default;
-	ECUmmpacket &operator=(const ECUmmpacket&) = default;
-	ECUmmpacket(ECUmmpacket&&) = default;
-	ECUmmpacket(const ECUmmpacket&) = default;
+    uint8_t end;
 
-	ECUmmpacket() : size(3), counter(0), frametypeid(0), end(0x03)
-	{
+    ECUmmpacket &operator=(ECUmmpacket &&) = default;
+    ECUmmpacket &operator=(const ECUmmpacket &) = default;
+    ECUmmpacket(ECUmmpacket &&) = default;
+    ECUmmpacket(const ECUmmpacket &) = default;
 
-	}
+    ECUmmpacket() : size(3), counter(0), frametypeid(0), end(0x03) {}
 };
 
-class ESP32Monomotronic
-{
-	bool inited;
-	bool ECUInited;
-	std::atomic<int>							taskState;
-	std::atomic<int>							ECUThreadErr;
-	std::atomic<bool>							ECUConnected;
-	std::atomic<bool>							baudEchoOK;
-	std::atomic<bool>							initPacketsOk;
-	std::atomic<int>							debug_line;
+class ESP32Monomotronic {
+    bool inited;
+    bool ECUInited;
+    std::atomic<int> taskState;
+    std::atomic<int> ECUThreadErr;
+    std::atomic<bool> ECUConnected;
+    std::atomic<bool> baudEchoOK;
+    std::atomic<bool> initPacketsOk;
+    std::atomic<int> debug_line;
 
+    std::atomic<bool> readSensors;
 
-	std::atomic<bool>							readSensors;
-  
-	std::mutex									requestCommandMutex;
-	struct
-	{
-		uint8_t frameid;
-		std::vector<uint8_t> data;
-	} newCommandFrame;
-	std::atomic<bool>							newCommandAvailable;
+    std::mutex requestCommandMutex;
+    struct {
+        uint8_t frameid;
+        std::vector<uint8_t> data;
+    } newCommandFrame;
+    std::atomic<bool> newCommandAvailable;
 
+    std::mutex getResultCommandMutex;
+    std::deque<ECUmmpacket> lastCommandPackets;
+    bool newCommandPacketsAvailable;
+    std::atomic<bool> ECUThreadCanAcceptCommands;
+    std::mutex ECUNewCommandMutex;
+    ECUmmpacket ECUNewCommandTemp;
+    std::atomic<bool> ECUNewCommandAvailable;
+    std::atomic<bool> ECUWaitAndReconnect;
 
-	std::mutex									getResultCommandMutex;
-	std::deque<ECUmmpacket>						lastCommandPackets;
-	bool										newCommandPacketsAvailable;
-	std::atomic<bool>							ECUThreadCanAcceptCommands;
-	std::mutex									ECUNewCommandMutex;
-	ECUmmpacket									ECUNewCommandTemp;
-	std::atomic<bool>							ECUNewCommandAvailable;
-	std::atomic<bool>							ECUWaitAndReconnect;
+    std::atomic<bool> ECUCommandResultAvailable;
+    ECUmmpacket ECUResponse;
 
-	std::atomic<bool>		ECUCommandResultAvailable;
-	ECUmmpacket				ECUResponse;
+    int ECUPacketCounter;
 
-	int ECUPacketCounter;
+    TaskHandle_t Task1;
 
-	TaskHandle_t								Task1;
+    static void updatePacketCounter(ESP32Monomotronic &mm,
+                                    const ECUmmpacket &p);
 
-	static void									updatePacketCounter(ESP32Monomotronic &mm, const ECUmmpacket &p);
+    std::deque<ECUmmpacket> initPackets;
+    ECUByte ECURead(int timeout = 1000);
+    bool ECUWrite(uint8_t b);
 
-	std::deque<ECUmmpacket>						initPackets;
-	ECUByte										ECURead(int timeout = 1000);
-	bool										ECUWrite(uint8_t b);
+    ECUByte ECUReadAndResponse(int timeout = 1000);
+    bool ECUWriteWaitResponse(uint8_t b, int timeout = 1000);
 
+    std::vector<uint8_t> ECUReadSequential(int size, int timeout = 1000);
+    bool ECUWriteSequential(const std::vector<uint8_t> &data,
+                            int timeout = 1000);
 
-	ECUByte										ECUReadAndResponse(int timeout = 1000);
-	bool										ECUWriteWaitResponse(uint8_t b, int timeout = 1000);
+    optional<ECUmmpacket> ECUReadPacket(int timeout = 1000);
+    bool
+    ECUWritePacket(uint8_t frameid,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>(),
+                   int timeout = 1000);
 
-	std::vector<uint8_t>						ECUReadSequential(int size, int timeout = 1000);
-	bool										ECUWriteSequential(const std::vector<uint8_t> &data, int timeout = 1000);
+    optional<std::deque<ECUmmpacket>>
+    ECURequestData(uint8_t frameid, uint8_t eECUFrameID,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>(),
+                   int timeout = 1000);
 
-	optional<ECUmmpacket>						ECUReadPacket(int timeout = 1000);
-	bool										ECUWritePacket(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>(), int timeout = 1000);
+    void debug_regiter_err(const char *file, int line) { debug_line = line; }
 
-	optional<std::deque<ECUmmpacket>>			ECURequestData(uint8_t frameid, uint8_t eECUFrameID, const std::vector<uint8_t> &data = std::vector<uint8_t>(), int timeout = 1000);
+    static void commThread(void *mm);
 
-	void										debug_regiter_err(const char *file, int line)
-	{
-		debug_line = line;
-	}
+  public:
+    int getThreadErrorCode() const { return ECUThreadErr; }
 
-	static void									commThread(void *mm);
-public:
-	int											getThreadErrorCode() const
-	{
-		return ECUThreadErr;
-	}
- 
-	int                     					getThreadTaskState() const
-	{
-		return taskState;
-	}
+    int getThreadTaskState() const { return taskState; }
 
-	bool										isECUConnected() const
-	{
-		return ECUConnected;
-	}
- 
-	bool                    					isEchoBytePresent() const
-	{
-		return baudEchoOK;
-	}
-	
-	int											getDebugLine() const
-	{
-		return debug_line;
-	}
+    bool isECUConnected() const { return ECUConnected; }
 
-	int											requestCommand(uint8_t frameid, const std::vector<uint8_t> data)
-	{
-		{
-			std::lock_guard<std::mutex> lck(requestCommandMutex);
-			newCommandFrame.frameid = frameid;
-			newCommandFrame.data = std::move(data);
-		}
-		newCommandAvailable = true;
+    bool isEchoBytePresent() const { return baudEchoOK; }
 
-		return 0;
-	}
+    int getDebugLine() const { return debug_line; }
 
-	optional<std::deque<ECUmmpacket>>			getLastCommandPackets()
-	{
-		std::lock_guard<std::mutex> lck(getResultCommandMutex);
-		
-		if (newCommandPacketsAvailable)
-		{
-			return std::move(lastCommandPackets);
-		}
+    int requestCommand(uint8_t frameid, const std::vector<uint8_t> data) {
+        {
+            std::lock_guard<std::mutex> lck(requestCommandMutex);
+            newCommandFrame.frameid = frameid;
+            newCommandFrame.data = std::move(data);
+        }
+        newCommandAvailable = true;
 
-		return nullopt;
-	}
-	
-	const std::deque<ECUmmpacket>*				getInitPackets() const
-	{
-		if (initPacketsOk)
-		{
-			return &initPackets;
-		}
-		
-		return nullptr;
-	}
+        return 0;
+    }
 
-	// Custom commands
-	// See ECU_FRAMES_ID
-	optional<ECUmmpacket>						getECUResponse();
-	bool										sendECURequest(uint8_t frameid, const std::vector<uint8_t> &data = std::vector<uint8_t>());
+    optional<std::deque<ECUmmpacket>> getLastCommandPackets() {
+        std::lock_guard<std::mutex> lck(getResultCommandMutex);
 
-	eTaskState getThreadState()
-	{
-		if (inited)
-			return eTaskGetState(Task1);
-		return eDeleted;
-	}
+        if (newCommandPacketsAvailable) {
+            return std::move(lastCommandPackets);
+        }
 
-	bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+        return nullopt;
+    }
 
-	// Wrapper to commands
-	optional<std::deque<ECUmmpacket>>		ECUReadErrors();
-	optional<std::deque<ECUmmpacket>>		ECUReadSensor(uint8_t sensorID);
-	optional<ECUmmpacket>					ECUCleanErrors();
+    const std::deque<ECUmmpacket> *getInitPackets() const {
+        if (initPacketsOk) {
+            return &initPackets;
+        }
 
-	// Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
-	enum ECU_FRAMES_ID {
-		ECU_DATA_MEMORY_READ = 0x01, ECU_REQ_ACTUATOR = 0x04, ECU_CLEAR_ERRORS_CODE = 0x05, ECU_REQ_DIAGNOSIS_END = 0x06, ECU_READ_ERRORS_CODE = 0x07, ECU_ACK_CODE = 0x09, ECU_NOT_ACK_CODE = 0x0A,
-		ECU_INIT_STRING = 0xF6, ECU_REQUEST_ADC_CODE = 0xFB, ECU_ERROR_DATA_CODE = 0xFC, ECU_READ_DATA_CODE = 0xFE
-	};
+        return nullptr;
+    }
 
-	// Error codes to description
-	static const char*						errorPacketToString(const ECUmmpacket &p, bool &present);
+    // Custom commands
+    // See ECU_FRAMES_ID
+    optional<ECUmmpacket> getECUResponse();
+    bool
+    sendECURequest(uint8_t frameid,
+                   const std::vector<uint8_t> &data = std::vector<uint8_t>());
 
-	bool init();
+    eTaskState getThreadState() {
+        if (inited)
+            return eTaskGetState(Task1);
+        return eDeleted;
+    }
 
-	ESP32Monomotronic();
+    bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+
+    // Wrapper to commands
+    optional<std::deque<ECUmmpacket>> ECUReadErrors();
+    optional<std::deque<ECUmmpacket>> ECUReadSensor(uint8_t sensorID);
+    optional<ECUmmpacket> ECUCleanErrors();
+
+    // Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
+    enum ECU_FRAMES_ID {
+        ECU_DATA_MEMORY_READ = 0x01,
+        ECU_REQ_ACTUATOR = 0x04,
+        ECU_CLEAR_ERRORS_CODE = 0x05,
+        ECU_REQ_DIAGNOSIS_END = 0x06,
+        ECU_READ_ERRORS_CODE = 0x07,
+        ECU_ACK_CODE = 0x09,
+        ECU_NOT_ACK_CODE = 0x0A,
+        ECU_INIT_STRING = 0xF6,
+        ECU_REQUEST_ADC_CODE = 0xFB,
+        ECU_ERROR_DATA_CODE = 0xFC,
+        ECU_READ_DATA_CODE = 0xFE
+    };
+
+    // Error codes to description
+    static const char *errorPacketToString(const ECUmmpacket &p, bool &present);
+
+    bool init();
+
+    ESP32Monomotronic();
 };
 
 #endif

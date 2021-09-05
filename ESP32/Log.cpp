@@ -26,26 +26,21 @@ SOFTWARE.
 #include "Log.h"
 #include <mutex>
 
-CLog::CLog()
-{
-	a.reserve(1024);
+CLog::CLog() { a.reserve(1024); }
+
+CLog &CLog::l() {
+    static CLog log;
+    return log;
 }
 
-CLog &CLog::l()
-{
-	static CLog log;
-	return log;
-}
+void CLog::logwrite(const std::string &s) {
+    std::lock_guard<std::mutex> lck(m);
 
-void CLog::logwrite(const std::string &s)
-{
-	std::lock_guard<std::mutex> lck(m);
-	
-	if (a.size() > 1000)
-		a.clear();
-	
-	a += String(millis()).c_str();
-	a += " ";
-	a += s;
-	a += "\n";
+    if (a.size() > 1000)
+        a.clear();
+
+    a += String(millis()).c_str();
+    a += " ";
+    a += s;
+    a += "\n";
 }

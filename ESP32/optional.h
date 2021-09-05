@@ -26,52 +26,41 @@ SOFTWARE.
 #ifndef ESP32_OPTIONAL
 #define ESP32_OPTIONAL
 
-namespace std
-{
-class nullopt_t
-{
-	bool a;
-	public:
-	
-	
+namespace std {
+class nullopt_t {
+    bool a;
+
+  public:
 };
 
-template<class T>
-class optional
-{
-	T val;
-	bool hasv;
-	
-public:
-	T &value() const { return val; };
-	bool has_value() const { return hasv; };
-	
-	operator bool() const
-	{
-		return hasv;
-	}
-	
-	optional &operator=(const T &v)
-	{
-		val = v;
-		hasv = true;
-		
-		return *this;
-	}
-	
-	optional &operator=(const T &&v)
-	{
-		val = std::move(v);
-		hasv = true;
-		
-		return *this;
-	}
-	
-	optional(T &&v) : hasv(true), val(std::move(v)) {   }
-	optional(const T &v) : hasv(true), val(v) {   }
-	optional() : hasv(false) {   }
+template <class T> class optional {
+    T val;
+    bool hasv;
+
+  public:
+    T &value() const { return val; };
+    bool has_value() const { return hasv; };
+
+    operator bool() const { return hasv; }
+
+    optional &operator=(const T &v) {
+        val = v;
+        hasv = true;
+
+        return *this;
+    }
+
+    optional &operator=(const T &&v) {
+        val = std::move(v);
+        hasv = true;
+
+        return *this;
+    }
+
+    optional(T &&v) : hasv(true), val(std::move(v)) {}
+    optional(const T &v) : hasv(true), val(v) {}
+    optional() : hasv(false) {}
 };
-}
+} // namespace std
 
 #endif
-
