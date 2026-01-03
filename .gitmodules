@@ -1,0 +1,7 @@
+[submodule "emu8051"]
+	path = emu8051
+	url = https://github.com/jarikomppa/emu8051.git
+[submodule "scanner_glfw/glfw"]
+	path = scanner_glfw/glfw
+	url = https://github.com/glfw/glfw.git
+
