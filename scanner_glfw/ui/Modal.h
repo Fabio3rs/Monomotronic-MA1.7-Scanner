@@ -30,7 +30,11 @@ class Modal {
   private:
     std::string title_;
     bool is_open_ = false;
+    bool is_closing_ = false;
     float width_ratio_ = 0.85f;
     float height_ratio_ = 0.75f;
     ImGuiWindowFlags flags_ = ImGuiWindowFlags_None;
+    // Animation state
+    float fade_alpha_ = 0.0f;
+    static constexpr float kFadeSpeed = 8.0f; // per second
 };

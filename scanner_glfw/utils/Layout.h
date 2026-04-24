@@ -38,7 +38,7 @@ constexpr float XLARGE = SPACING_XLARGE;
 // Button dimensions (standardized across all screens)
 namespace Button {
 // Primary action buttons
-constexpr float PRIMARY_WIDTH = 95.0f;  // Edit, Record, Pause, Freeze
+constexpr float PRIMARY_WIDTH = 110.0f; // Edit, Record, Pause, Freeze
 constexpr float PRIMARY_HEIGHT = 50.0f; // Reduced from 60px
 
 // Secondary action buttons
@@ -46,7 +46,7 @@ constexpr float SECONDARY_WIDTH = 85.0f; // Snap, Signals
 constexpr float SECONDARY_HEIGHT = 50.0f;
 
 // Wide buttons (text-heavy)
-constexpr float WIDE_WIDTH = 115.0f; // Reset, Read DTCs, Clear
+constexpr float WIDE_WIDTH = 130.0f; // Reset, Read DTCs, Clear
 constexpr float WIDE_HEIGHT = 50.0f;
 
 // Pagination buttons

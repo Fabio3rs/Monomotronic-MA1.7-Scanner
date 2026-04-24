@@ -31,8 +31,8 @@ class RecordingManager {
     const std::string &GetLastError() const noexcept { return last_error_; }
 
   private:
-    bool HasValidSensors(const std::vector<SensorState> &sensors) const
-        noexcept;
+    bool
+    HasValidSensors(const std::vector<SensorState> &sensors) const noexcept;
     void FilterSensorIndices(const std::vector<SensorState> &sensors,
                              std::vector<int> &indices);
 

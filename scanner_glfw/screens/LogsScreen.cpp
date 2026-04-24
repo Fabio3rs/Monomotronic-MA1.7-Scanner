@@ -100,12 +100,18 @@ void LogsScreen::RenderTopControls() {
     if (ImGui::Button("\uF1F8 Clear", ImVec2(WIDE_WIDTH, PRIMARY_HEIGHT))) {
         ClearLogs();
     }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clear all log entries");
+    }
 
     ImGui::SameLine(0.0f, SPACING);
 
     // Export button
     if (ImGui::Button("\uF0C7 Export", ImVec2(WIDE_WIDTH, PRIMARY_HEIGHT))) {
         ExportLogs();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Export logs to file");
     }
 
     ImGui::SameLine(0.0f, SPACING * 2);

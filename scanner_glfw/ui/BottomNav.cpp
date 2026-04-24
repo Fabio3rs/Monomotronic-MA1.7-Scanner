@@ -41,20 +41,20 @@ void BottomNav::Render(float bar_height) {
     const float btn_width = total_width / 5.0f;
     const float btn_height = bar_height;
 
-    // Render 5 tab buttons
-    RenderTabButton("LIVE", Screen::LIVE, btn_width, btn_height);
+    // Render 5 tab buttons with icons (Font Awesome 4)
+    RenderTabButton("\uF1FE LIVE", Screen::LIVE, btn_width, btn_height);
     ImGui::SameLine(0, 0);
 
-    RenderTabButton("GRAPH", Screen::GRAPH, btn_width, btn_height);
+    RenderTabButton("\uF201 GRAPH", Screen::GRAPH, btn_width, btn_height);
     ImGui::SameLine(0, 0);
 
-    RenderTabButton("DASH", Screen::DASH, btn_width, btn_height);
+    RenderTabButton("\uF0E4 DASH", Screen::DASH, btn_width, btn_height);
     ImGui::SameLine(0, 0);
 
-    RenderTabButton("DTC", Screen::DTC, btn_width, btn_height);
+    RenderTabButton("\uF071 DTC", Screen::DTC, btn_width, btn_height);
     ImGui::SameLine(0, 0);
 
-    RenderTabButton("LOGS", Screen::LOGS, btn_width, btn_height);
+    RenderTabButton("\uF15C LOGS", Screen::LOGS, btn_width, btn_height);
 
     ImGui::EndChild();
 }
@@ -84,6 +84,9 @@ void BottomNav::RenderTabButton(const char *label, Screen screen,
 
     if (ImGui::Button(label, ImVec2(btn_width, btn_height))) {
         SetCurrentScreen(screen);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Go to %s", label);
     }
 
     ImGui::PopStyleColor(3);

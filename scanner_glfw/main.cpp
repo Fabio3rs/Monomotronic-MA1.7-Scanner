@@ -654,6 +654,12 @@ int main(int, char **) {
 
         g_bottom_nav.Render(bottom_nav_height);
 
+        // Show ECU loading overlay when backend is starting but not yet
+        // connected
+        if (!ecuConnected && !simulationModeActive) {
+            RenderECULoadingOverlay();
+        }
+
         ImGui::End();
 
         ImGui::Render();
@@ -677,7 +683,8 @@ int main(int, char **) {
     ImGui_ImplGlfw_Shutdown();
 
     // --- GRACEFUL SHUTDOWN SEQUENCE (bottom-up) ---
-    // Stop ECU backend worker thread first (before destroying resources it uses)
+    // Stop ECU backend worker thread first (before destroying resources it
+    // uses)
     ECUBackend::Instance().Stop();
 
     // Stop recording if active (fstream RAII will close on destruction)

@@ -35,6 +35,9 @@ class DTCScreen : public BaseScreen {
     std::vector<DTCEntry> cached_page_dtcs_;
     int cached_page_index_ = -1;
 
+    // Timestamp of last successful read
+    std::string last_read_time_;
+
     // Components
     Modal clear_confirm_modal_;
 

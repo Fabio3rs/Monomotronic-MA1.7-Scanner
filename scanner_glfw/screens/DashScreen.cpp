@@ -129,6 +129,9 @@ void DashScreen::RenderTopControls() {
     if (ImGui::Button("\uF0E2 Reset", ImVec2(WIDE_WIDTH, PRIMARY_HEIGHT))) {
         show_reset_confirmation_ = true;
     }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Clear all dashboard widgets");
+    }
 
     ImGui::SameLine();
 

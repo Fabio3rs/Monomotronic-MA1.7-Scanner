@@ -78,6 +78,10 @@ class ECUBackend {
     void ClearSubscriptions();
     bool IsSensorActive(int sensor_id) const;
 
+    // Pause/resume sensor polling (reduces CPU/serial load when not needed)
+    void SetPaused(bool paused);
+    bool IsPaused() const;
+
   private:
     static constexpr auto kRamB3CacheDuration = std::chrono::seconds(5);
 
@@ -138,6 +142,7 @@ class ECUBackend {
     std::string port_;
     std::optional<ECUInfo> ecu_info_;
     std::atomic<double> last_sample_timestamp_sec_;
+    std::atomic<bool> paused_;
 
     void ProcessInitPackets(std::span<const ECUmmpacket> packets) noexcept;
 };

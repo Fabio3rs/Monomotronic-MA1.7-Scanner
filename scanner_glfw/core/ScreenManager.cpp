@@ -1,5 +1,6 @@
 #include "ScreenManager.h"
 #include "../app_data.h"
+#include "../core/ECUBackend.h"
 #include "../screens/BaseScreen.h"
 #include "../screens/DTCScreen.h"
 #include "../screens/DashScreen.h"
@@ -114,6 +115,23 @@ void ScreenManager::TransitionToScreen(Screen screen) {
 
     if (current_screen_) {
         current_screen_->OnExit();
+    }
+
+    // Pause ECU polling and trim histories on non-live screens to save
+    // resources
+    auto &backend = ECUBackend::Instance();
+    const bool needs_live_data =
+        (screen == Screen::LIVE || screen == Screen::GRAPH ||
+         screen == Screen::DASH);
+    backend.SetPaused(!needs_live_data);
+    if (!needs_live_data) {
+        for (auto &sensor : simulatedSensors) {
+            sensor.SetMaxHistory(60); // Keep minimal history for sparklines
+        }
+    } else {
+        for (auto &sensor : simulatedSensors) {
+            sensor.SetMaxHistory(300); // Restore full history
+        }
     }
 
     current_screen_ = target;

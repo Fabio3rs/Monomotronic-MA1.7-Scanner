@@ -1,26 +1,23 @@
 #include "../app_data.h"
 #include "../core/RecordingManager.h"
 #include "../utils/FileIO.h"
-#include <gtest/gtest.h>
 #include <cstdio>
 #include <fstream>
+#include <gtest/gtest.h>
 #include <string_view>
 
-// Provide minimal definitions for globals referenced by RecordingManager
-bool loggingActive = false;
-bool ecuConnected = false;
-int kLineTableActive = 0;
-bool simulationModeActive = false;
+// Globals are now inline in app_data.h; no need to redefine here.
+// Provide only the out-of-line symbols that RecordingManager needs but that
+// live in app_data.cpp (not in the header).
 std::optional<ECUInfo> g_ecu_info;
-std::function<void(const ECUInfo &)> on_ecu_info_received = nullptr;
-std::function<void(const std::string &)> on_connection_error = nullptr;
+std::function<void(const ECUInfo &)> on_ecu_info_received;
+std::function<void(const std::string &)> on_connection_error;
 
 // Define SensorState constructor (normally in app_data.cpp) for linkage
 SensorState::SensorState(std::string_view n, int i, int s,
                          std::function<double(int)> d, std::string_view u,
                          std::string_view desc, double dmin, double dmax,
-                         double amin, double amax, int len,
-                         SensorPollMode mode)
+                         double amin, double amax, int len, SensorPollMode mode)
     : name(n), id(i), subcmd(s), dataLength(len), lastRaw(0.0), lastValue(0.0),
       maxHistory(300), decoder(d), unit(u), description(desc), displayMin(dmin),
       displayMax(dmax), alertMin(amin), alertMax(amax),
@@ -98,7 +95,8 @@ TEST_F(RecordingManagerTest, StartStopSucceeds) {
 
 TEST_F(RecordingManagerTest, SampleIntervalRespectsThrottle) {
     auto sensors = MakeSensors(1);
-    RecordingManager::Instance().SetSampleInterval(std::chrono::milliseconds(100));
+    RecordingManager::Instance().SetSampleInterval(
+        std::chrono::milliseconds(100));
 
     ASSERT_TRUE(RecordingManager::Instance().StartRecording(sensors, {0}))
         << RecordingManager::Instance().GetLastError();

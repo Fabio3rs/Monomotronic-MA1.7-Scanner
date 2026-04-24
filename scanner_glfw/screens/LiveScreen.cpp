@@ -186,9 +186,9 @@ void LiveScreen::Render() {
                               : ThemeManager::Instance().GetSuccessColor();
         bg_color.w = 0.9f * alpha;
 
-        draw_list->AddRectFilled(
-            toast_pos, toast_max,
-            ImGui::ColorConvertFloat4ToU32(bg_color), 6.0f);
+        draw_list->AddRectFilled(toast_pos, toast_max,
+                                 ImGui::ColorConvertFloat4ToU32(bg_color),
+                                 6.0f);
 
         ImVec4 border_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
         draw_list->AddRect(toast_pos, toast_max,
@@ -199,8 +199,7 @@ void LiveScreen::Render() {
         const ImVec2 text_pos(toast_pos.x + text_padding,
                               toast_pos.y + text_padding);
         ImVec4 text_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
-        draw_list->AddText(text_pos,
-                           ImGui::ColorConvertFloat4ToU32(text_color),
+        draw_list->AddText(text_pos, ImGui::ColorConvertFloat4ToU32(text_color),
                            recording_toast_message_.c_str());
     }
 
@@ -240,6 +239,9 @@ void LiveScreen::RenderTopControls() {
         if (ImGui::Button("\uF040 Edit",
                           ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) { // FA pencil
             sensor_list_modal_.Open(customSensorList, simulatedSensors.size());
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Customize visible sensors");
         }
     } else {
         ImGui::BeginDisabled();
@@ -288,6 +290,10 @@ void LiveScreen::RenderTopControls() {
                 }
             }
         }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(was_recording ? "Stop recording session"
+                                            : "Start recording sensor data");
+        }
         ImGui::EndDisabled();
 
         // C.41: Pop using saved state to guarantee balance
@@ -325,6 +331,10 @@ void LiveScreen::RenderTopControls() {
 
     if (paused_) {
         ImGui::PopStyleColor(2);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(paused_ ? "Resume live data"
+                                  : "Freeze display for inspection");
     }
 
     ImGui::SameLine(0.0f, SPACING); // 8px spacing
@@ -375,9 +385,9 @@ void LiveScreen::RenderTopControls() {
         }
 
         ImGui::SameLine(0.0f, SPACING);
-        ImGui::TextColored(theme.GetAccentColor(), "REC: %llu samples \u2022 %s",
-                           static_cast<unsigned long long>(samples),
-                           short_path.c_str());
+        ImGui::TextColored(
+            theme.GetAccentColor(), "REC: %llu samples \u2022 %s",
+            static_cast<unsigned long long>(samples), short_path.c_str());
     }
 }
 

@@ -6,7 +6,9 @@
 #include "KlineCollectionTables.h"
 #include "SensorDecoders.h"
 #include "app_data.h"
+#include "core/AnimationSystem.h"
 #include "core/ECUBackend.h"
+#include "core/ThemeManager.h"
 #include "imgui.h"   // For IM_COL32, ImVec2, etc.
 #include <algorithm> // For std::clamp, std::max
 #include <cstdlib>
@@ -21,37 +23,11 @@ constexpr double DEFAULT_ALERT_TRIGGER_DELAY = 4.0; // segundos
 constexpr double DEFAULT_ALERT_CLEAR_DELAY = 4.0;   // segundos
 
 // --- Variáveis de estado da aplicação ---
-Screen currentScreen = Screen::DASH;
-std::vector<int> pinnedSensorIndices;
-std::vector<int> customSensorList;  // User favorite sensors for LIVE screen
-std::vector<int> defaultSensorList; // ECU default sensor set
-std::vector<DashboardWidget> dashboardWidgets; // Dashboard widget configuration
-int dashboardColumns = 2;                      // Default: 2 columns
-std::vector<int> graphSensorIndices;
-float graphTimeWindowSecs = 30.0f;
-bool graphFrozen = false;
-bool loggingActive = false;
-int selectedSensorForDetail = -1;
-std::vector<bool> graphSignalAutoScaleY;
-bool graphCursorActive = false;
-ImVec2 graphCursorPos = ImVec2(0, 0);
-bool graphCursorBActive = false;       // Second cursor for delta measurement
-ImVec2 graphCursorBPos = ImVec2(0, 0); // Position of cursor B
-float graphLastPlotMinY[4] = {0.0f};
-float graphLastPlotMaxY[4] = {0.0f};
+// (Migrated to AppContext namespace in app_data.h as inline variables)
 
-// Connection status variables
-float kLineLatency = 16.0f;  // milliseconds
-float kLineErrorRate = 0.0f; // 0.0 - 1.0
-bool ecuConnected = true;
-int kLineTableActive = 0;
-bool simulationModeActive = false;
 std::optional<ECUInfo> g_ecu_info;
 std::function<void(const ECUInfo &)> on_ecu_info_received;
 std::function<void(const std::string &)> on_connection_error;
-uint64_t dataSampleSequence = 0;
-double dataSampleTimestampSec = 0.0;
-double dataSampleDeltaSec = 0.0;
 
 // DTC pagination
 int dtcPageIndex = 0;
@@ -78,8 +54,7 @@ std::map<std::string, std::vector<int>> sensorCategories;
 SensorState::SensorState(std::string_view n, int i, int s,
                          std::function<double(int)> d, std::string_view u,
                          std::string_view desc, double dmin, double dmax,
-                         double amin, double amax, int len,
-                         SensorPollMode mode)
+                         double amin, double amax, int len, SensorPollMode mode)
     : name(n), id(i), subcmd(s), dataLength(len), lastRaw(0.0), lastValue(0.0),
       maxHistory(300), decoder(d), unit(u), description(desc), displayMin(dmin),
       displayMax(dmax), alertMin(amin), alertMax(amax),
@@ -92,7 +67,8 @@ SensorState::SensorState(std::string_view n, int i, int s,
 }
 
 namespace {
-// Local wrapper for KlineEntry to maintain compatibility with BuildDefaultKlineSet
+// Local wrapper for KlineEntry to maintain compatibility with
+// BuildDefaultKlineSet
 struct KlineEntry {
     uint8_t id;
     uint8_t subcmd;
@@ -121,9 +97,8 @@ std::vector<KlineEntry> BuildDefaultKlineSet() {
         const auto key = std::make_pair(static_cast<uint8_t>(dec.id),
                                         static_cast<uint8_t>(dec.subcommand));
         if (seen.insert(key).second) {
-            merged.push_back(
-                KlineEntry{static_cast<uint8_t>(dec.id),
-                           static_cast<uint8_t>(dec.subcommand)});
+            merged.push_back(KlineEntry{static_cast<uint8_t>(dec.id),
+                                        static_cast<uint8_t>(dec.subcommand)});
         }
     }
 
@@ -226,6 +201,14 @@ void SensorState::pushSample(int raw, double current_time) {
         pendingStatus = immediateStatus;
         statusTransitionStartTime = current_time;
         inStatusTransition = true;
+    }
+}
+
+void SensorState::SetMaxHistory(size_t new_max) {
+    maxHistory = new_max;
+    if (history.size() > maxHistory) {
+        history.erase(history.begin(),
+                      history.begin() + (history.size() - maxHistory));
     }
 }
 
@@ -434,3 +417,64 @@ void UpdateLiveData() {
 // Accessors
 void SetCurrentScreen(Screen s) { currentScreen = s; }
 Screen GetCurrentScreen() { return currentScreen; }
+
+void RenderECULoadingOverlay() {
+    auto &anim = AnimationSystem::Instance();
+    const float pulse = anim.GetPulse(1.5f);
+    const float alpha = 0.7f + 0.3f * pulse;
+
+    const ImVec2 vp_size = ImGui::GetIO().DisplaySize;
+    const ImVec2 center(vp_size.x * 0.5f, vp_size.y * 0.5f);
+
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+
+    // Dark semi-transparent background
+    draw_list->AddRectFilled(
+        ImVec2(0, 0), vp_size,
+        ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.6f)));
+
+    // Spinner ring
+    constexpr float kRadius = 32.0f;
+    constexpr float kThickness = 4.0f;
+    const float angle = static_cast<float>(ImGui::GetTime()) * 3.0f;
+    const int num_segments = 24;
+    const float arc_length = M_PI * 0.75f;
+
+    for (int i = 0; i < num_segments; ++i) {
+        const float a0 =
+            angle + (i / static_cast<float>(num_segments)) * M_PI * 2.0f;
+        const float a1 =
+            angle + ((i + 1) / static_cast<float>(num_segments)) * M_PI * 2.0f;
+        const float fade =
+            std::max(0.0f, std::cos(a0 - angle - arc_length * 0.5f));
+        if (fade < 0.01f)
+            continue;
+
+        const ImU32 col = ImGui::ColorConvertFloat4ToU32(
+            ImVec4(0.2f, 0.7f, 1.0f, fade * alpha));
+        draw_list->AddLine(ImVec2(center.x + std::cos(a0) * kRadius,
+                                  center.y + std::sin(a0) * kRadius),
+                           ImVec2(center.x + std::cos(a1) * kRadius,
+                                  center.y + std::sin(a1) * kRadius),
+                           col, kThickness);
+    }
+
+    // Text below spinner
+    auto &theme = ThemeManager::Instance();
+    const char *text = "Connecting to ECU...";
+    const ImVec2 text_size = ImGui::CalcTextSize(text);
+    const ImVec2 text_pos(center.x - text_size.x * 0.5f,
+                          center.y + kRadius + 20.0f);
+    draw_list->AddText(text_pos,
+                       ImGui::ColorConvertFloat4ToU32(theme.GetPrimaryColor()),
+                       text);
+
+    // Subtext
+    const char *sub = "Please ensure ignition is ON";
+    const ImVec2 sub_size = ImGui::CalcTextSize(sub);
+    const ImVec2 sub_pos(center.x - sub_size.x * 0.5f,
+                         text_pos.y + text_size.y + 8.0f);
+    draw_list->AddText(
+        sub_pos, ImGui::ColorConvertFloat4ToU32(theme.GetSecondaryColor()),
+        sub);
+}

@@ -60,11 +60,12 @@ ECUBackend &ECUBackend::Instance() {
 }
 
 ECUBackend::ECUBackend()
-    : running_(false), connected_(false), latency_ms_(0.0f), error_rate_(0.0f),
-      last_table_id_(0), sensors_(nullptr), table1_indices_{},
-      table2_indices_{}, sensor_count_(0), all_sensors_mask_(0),
-      active_sensor_mask_(0), cached_ram_b3_(0), ram_b3_valid_(false),
-      ram_b3_cache_time_(), last_sample_timestamp_sec_(0.0) {}
+    : running_(false), connected_(false), paused_(false), latency_ms_(0.0f),
+      error_rate_(0.0f), last_table_id_(0), sensors_(nullptr),
+      table1_indices_{}, table2_indices_{}, sensor_count_(0),
+      all_sensors_mask_(0), active_sensor_mask_(0), cached_ram_b3_(0),
+      ram_b3_valid_(false), ram_b3_cache_time_(),
+      last_sample_timestamp_sec_(0.0) {}
 
 ECUBackend::~ECUBackend() { Stop(); }
 
@@ -175,6 +176,14 @@ bool ECUBackend::IsSensorActive(int sensor_id) const {
 
     const uint64_t mask = active_sensor_mask_.load(std::memory_order_acquire);
     return (mask & (1ULL << sensor_id)) != 0;
+}
+
+void ECUBackend::SetPaused(bool paused) {
+    paused_.store(paused, std::memory_order_relaxed);
+}
+
+bool ECUBackend::IsPaused() const {
+    return paused_.load(std::memory_order_relaxed);
 }
 
 bool ECUBackend::DrainSamples(std::vector<SensorState> &sensors) {
@@ -288,7 +297,8 @@ ECUBackend::GetActiveSensorCollection() {
     // Acquire mutex (blocks worker thread like ReadDTCs does)
     std::lock_guard<std::mutex> lock(command_mutex_);
 
-    // Table selection logic matching DetermineCollectionTable()/DecodeSensorCollection()
+    // Table selection logic matching
+    // DetermineCollectionTable()/DecodeSensorCollection()
     const int table_id = DetermineCollectionTable();
     const auto *table = (table_id == 2)   ? &kCollectionTable2
                         : (table_id == 1) ? &kCollectionTable1
@@ -324,6 +334,10 @@ ECUBackend::GetActiveSensorCollection() {
 
 void ECUBackend::WorkerLoop() {
     while (running_) {
+        if (paused_) {
+            std::this_thread::sleep_for(kIdleInterval);
+            continue;
+        }
         if (!ecu_ || sensors_ == nullptr) {
             connected_.store(false, std::memory_order_relaxed);
             InvalidateRamB3Cache();

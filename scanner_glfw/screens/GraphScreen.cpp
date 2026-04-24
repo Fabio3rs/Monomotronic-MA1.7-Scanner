@@ -210,6 +210,10 @@ void GraphScreen::RenderTopControls() {
         graph_frozen_ = !graph_frozen_;
         graphFrozen = graph_frozen_; // Sync to global state
     }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(graph_frozen_ ? "Resume live graph"
+                                        : "Freeze graph for analysis");
+    }
 
     ImGui::SameLine();
 

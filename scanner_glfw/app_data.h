@@ -27,37 +27,80 @@ struct DashboardWidget {
         : sensor_idx(idx), type(t) {}
 };
 
-// Estado da aplicação e dados simulados
-extern Screen currentScreen;
-extern std::vector<int> pinnedSensorIndices;
-extern std::vector<int>
-    customSensorList; // User favorite sensors for LIVE screen
-extern std::vector<int> defaultSensorList; // ECU default sensor set
-extern std::vector<DashboardWidget>
-    dashboardWidgets;        // Dashboard widget configuration
-extern int dashboardColumns; // 1, 2, or 3 columns
-extern std::vector<int> graphSensorIndices;
-extern float graphTimeWindowSecs;
-extern bool graphFrozen;
-extern bool loggingActive;
-extern int selectedSensorForDetail;
-extern std::vector<bool> graphSignalAutoScaleY;
-extern bool graphCursorActive;
-extern ImVec2 graphCursorPos;
-extern bool graphCursorBActive; // Second cursor for delta measurement
-extern ImVec2 graphCursorBPos;  // Position of cursor B
-extern float graphLastPlotMinY[4];
-extern float graphLastPlotMaxY[4];
+// ============================================================================
+// Structured application contexts (C++20 inline for zero-overhead linkage)
+// ============================================================================
+namespace AppContext {
 
-// Connection status variables
-extern float kLineLatency;   // milliseconds
-extern float kLineErrorRate; // 0.0 - 1.0
-extern bool ecuConnected;
-extern int kLineTableActive; // 0 = none, 1 = table1 (6E78), 2 = table2 (6E8C)
-extern bool simulationModeActive; // Explicit simulation flag
-extern uint64_t dataSampleSequence;
-extern double dataSampleTimestampSec;
-extern double dataSampleDeltaSec;
+struct UIState {
+    Screen currentScreen = Screen::DASH;
+    std::vector<int> pinnedSensorIndices;
+    std::vector<int> customSensorList;  // User favorite sensors for LIVE screen
+    std::vector<int> defaultSensorList; // ECU default sensor set
+    std::vector<DashboardWidget> dashboardWidgets;
+    int dashboardColumns = 2;
+    std::vector<int> graphSensorIndices;
+    float graphTimeWindowSecs = 30.0f;
+    bool graphFrozen = false;
+    bool loggingActive = false;
+    int selectedSensorForDetail = -1;
+    std::vector<bool> graphSignalAutoScaleY;
+    bool graphCursorActive = false;
+    ImVec2 graphCursorPos = ImVec2(0, 0);
+    bool graphCursorBActive = false;
+    ImVec2 graphCursorBPos = ImVec2(0, 0);
+    float graphLastPlotMinY[4] = {0.0f};
+    float graphLastPlotMaxY[4] = {0.0f};
+};
+inline UIState ui;
+
+struct ECUState {
+    float kLineLatency = 16.0f;  // milliseconds
+    float kLineErrorRate = 0.0f; // 0.0 - 1.0
+    bool ecuConnected = true;
+    int kLineTableActive = 0; // 0 = none, 1 = table1 (6E78), 2 = table2 (6E8C)
+    bool simulationModeActive = false;
+    uint64_t dataSampleSequence = 0;
+    double dataSampleTimestampSec = 0.0;
+    double dataSampleDeltaSec = 0.0;
+};
+inline ECUState ecu;
+
+} // namespace AppContext
+
+// ============================================================================
+// Legacy global aliases (preserved for backward compatibility)
+// ============================================================================
+inline Screen &currentScreen = AppContext::ui.currentScreen;
+inline std::vector<int> &pinnedSensorIndices =
+    AppContext::ui.pinnedSensorIndices;
+inline std::vector<int> &customSensorList = AppContext::ui.customSensorList;
+inline std::vector<int> &defaultSensorList = AppContext::ui.defaultSensorList;
+inline std::vector<DashboardWidget> &dashboardWidgets =
+    AppContext::ui.dashboardWidgets;
+inline int &dashboardColumns = AppContext::ui.dashboardColumns;
+inline std::vector<int> &graphSensorIndices = AppContext::ui.graphSensorIndices;
+inline float &graphTimeWindowSecs = AppContext::ui.graphTimeWindowSecs;
+inline bool &graphFrozen = AppContext::ui.graphFrozen;
+inline bool &loggingActive = AppContext::ui.loggingActive;
+inline int &selectedSensorForDetail = AppContext::ui.selectedSensorForDetail;
+inline std::vector<bool> &graphSignalAutoScaleY =
+    AppContext::ui.graphSignalAutoScaleY;
+inline bool &graphCursorActive = AppContext::ui.graphCursorActive;
+inline ImVec2 &graphCursorPos = AppContext::ui.graphCursorPos;
+inline bool &graphCursorBActive = AppContext::ui.graphCursorBActive;
+inline ImVec2 &graphCursorBPos = AppContext::ui.graphCursorBPos;
+inline float *graphLastPlotMinY = AppContext::ui.graphLastPlotMinY;
+inline float *graphLastPlotMaxY = AppContext::ui.graphLastPlotMaxY;
+
+inline float &kLineLatency = AppContext::ecu.kLineLatency;
+inline float &kLineErrorRate = AppContext::ecu.kLineErrorRate;
+inline bool &ecuConnected = AppContext::ecu.ecuConnected;
+inline int &kLineTableActive = AppContext::ecu.kLineTableActive;
+inline bool &simulationModeActive = AppContext::ecu.simulationModeActive;
+inline uint64_t &dataSampleSequence = AppContext::ecu.dataSampleSequence;
+inline double &dataSampleTimestampSec = AppContext::ecu.dataSampleTimestampSec;
+inline double &dataSampleDeltaSec = AppContext::ecu.dataSampleDeltaSec;
 
 // ECU information parsed from init packets
 struct ECUInfo {
@@ -136,9 +179,9 @@ struct SensorState {
                 std::function<double(int)> d = nullptr, std::string_view u = "",
                 std::string_view desc = "", double dmin = NAN,
                 double dmax = NAN, double amin = NAN, double amax = NAN,
-                int len = 1,
-                SensorPollMode mode = SensorPollMode::COLLECTION);
+                int len = 1, SensorPollMode mode = SensorPollMode::COLLECTION);
     void pushSample(int raw, double current_time);
+    void SetMaxHistory(size_t new_max);
 };
 extern std::vector<SensorState> simulatedSensors;
 extern std::map<std::string, std::vector<int>> sensorCategories;
@@ -147,6 +190,7 @@ extern std::map<std::string, std::vector<int>> sensorCategories;
 void initSimulatedSensors();
 void generateSimulatedSamples();
 void UpdateLiveData();
+void RenderECULoadingOverlay();
 
 // Accessors for current screen to avoid accidental duplicate symbol usage
 void SetCurrentScreen(Screen s);

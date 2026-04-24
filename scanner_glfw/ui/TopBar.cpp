@@ -204,7 +204,8 @@ void TopBar::RenderSimulationBanner() {
 
 void TopBar::RenderThemeToggle() {
     auto &theme = ThemeManager::Instance();
-    constexpr float kIconButtonHeight = 40.0f;
+    constexpr float kIconButtonHeight =
+        Layout::Button::ICON_SIZE; // 48px touch target
 
     // Moon icon for dark mode, sun icon for light mode
     const char *icon = (theme.GetTheme() == ThemeManager::Theme::DARK)
@@ -268,7 +269,8 @@ void TopBar::ToggleFullscreen() {
 
 void TopBar::RenderWindowControls() {
     auto &theme = ThemeManager::Instance();
-    constexpr float kIconButtonHeight = 40.0f;
+    constexpr float kIconButtonHeight =
+        Layout::Button::ICON_SIZE; // 48px touch target
 
     // Fullscreen/Windowed toggle button
     const char *fullscreen_icon = is_fullscreen_ ? "\uF066" : "\uF065";

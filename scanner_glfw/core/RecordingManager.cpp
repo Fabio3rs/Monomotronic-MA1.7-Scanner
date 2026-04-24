@@ -101,9 +101,8 @@ bool RecordingManager::StartRecording(const std::vector<SensorState> &sensors,
         return false;
     }
 
-    const std::size_t valid_count =
-        CountValidSensors(sensors, sensor_indices_.empty() ? nullptr
-                                                           : &sensor_indices_);
+    const std::size_t valid_count = CountValidSensors(
+        sensors, sensor_indices_.empty() ? nullptr : &sensor_indices_);
     if (valid_count == 0) {
         last_error_ = "No valid sensors selected for recording";
         sensor_indices_.clear();
@@ -287,9 +286,8 @@ void RecordingManager::FilterSensorIndices(
     }
 
     const int max_idx = static_cast<int>(sensors.size());
-    indices.erase(std::remove_if(indices.begin(), indices.end(),
-                                 [max_idx](int idx) {
-                                     return idx < 0 || idx >= max_idx;
-                                 }),
+    indices.erase(std::remove_if(
+                      indices.begin(), indices.end(),
+                      [max_idx](int idx) { return idx < 0 || idx >= max_idx; }),
                   indices.end());
 }
