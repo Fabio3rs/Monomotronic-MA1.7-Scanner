@@ -54,6 +54,12 @@ class LiveScreen : public BaseScreen {
     void StopRecording();
     void WriteRecordingSample();
 
+    // Feedback state
+    bool show_recording_toast_ = false;
+    float recording_toast_timer_ = 0.0f;
+    std::string recording_toast_message_;
+    bool recording_toast_error_ = false;
+
     // Snapshot methods
     bool TakeSnapshot();
 };

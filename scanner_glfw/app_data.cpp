@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "KlineCollectionTables.h"
 #include "SensorDecoders.h"
 #include "app_data.h"
 #include "core/ECUBackend.h"
@@ -77,11 +78,12 @@ std::map<std::string, std::vector<int>> sensorCategories;
 SensorState::SensorState(std::string_view n, int i, int s,
                          std::function<double(int)> d, std::string_view u,
                          std::string_view desc, double dmin, double dmax,
-                         double amin, double amax, int len)
+                         double amin, double amax, int len,
+                         SensorPollMode mode)
     : name(n), id(i), subcmd(s), dataLength(len), lastRaw(0.0), lastValue(0.0),
       maxHistory(300), decoder(d), unit(u), description(desc), displayMin(dmin),
       displayMax(dmax), alertMin(amin), alertMax(amax),
-      status(SensorStatus::OK), lastUpdateTime(0.0),
+      status(SensorStatus::OK), lastUpdateTime(0.0), pollMode(mode),
       // Inicializar campos de debouncing
       pendingStatus(SensorStatus::OK), statusTransitionStartTime(0.0),
       alertTriggerDelay(DEFAULT_ALERT_TRIGGER_DELAY),
@@ -90,53 +92,41 @@ SensorState::SensorState(std::string_view n, int i, int s,
 }
 
 namespace {
+// Local wrapper for KlineEntry to maintain compatibility with BuildDefaultKlineSet
 struct KlineEntry {
     uint8_t id;
     uint8_t subcmd;
 };
 
-constexpr std::array<KlineEntry, 10> kKlineTable1{{
-    {0x63, 0x00}, // Temp. água
-    {0x66, 0x00}, // TPS trilha 1
-    {0x47, 0x00}, // RPM motor
-    {0x62, 0x00}, // Temp. ar
-    {0x0C, 0xF8}, // Integrador lambda
-    {0x6C, 0xF8}, // Adaptação MAP
-    {0x6F, 0xF8}, // Coef. MLLECK
-    {0x3D, 0xF8}, // Atuador marcha lenta
-    {0x61, 0x00}, // Bateria (bruto)
-    {0x69, 0xF8}, // Adaptação FTEAD
-}};
-
-constexpr std::array<KlineEntry, 10> kKlineTable2{{
-    {0x63, 0x00}, // Temp. água
-    {0x66, 0x00}, // TPS trilha 1
-    {0x70, 0x00}, // Ângulo borboleta
-    {0x2F, 0x00}, // Flags combustível
-    {0x72, 0xF8}, // Coef. TS
-    {0x6C, 0xF8}, // Adaptação MAP
-    {0x6F, 0xF8}, // Coef. MLLECK
-    {0x40, 0xF8}, // Parâmetro adapt. 0 (XRAM_0x40)
-    {0x61, 0x00}, // Bateria (bruto)
-    {0x69, 0xF8}, // Adaptação FTEAD
-}};
-
 std::vector<KlineEntry> BuildDefaultKlineSet() {
     std::vector<KlineEntry> merged;
-    merged.reserve(kKlineTable1.size() + kKlineTable2.size());
     std::set<std::pair<uint8_t, uint8_t>> seen;
 
+    // Helper to add entries from a collection table
     auto addTable = [&](const auto &table) {
-        for (const auto &entry : table) {
-            auto key = std::make_pair(entry.id, entry.subcmd);
+        for (const auto &[id, subcmd] : table) {
+            const auto key = std::make_pair(id, subcmd);
             if (seen.insert(key).second) {
-                merged.push_back(entry);
+                merged.push_back(KlineEntry{id, subcmd});
             }
         }
     };
 
-    addTable(kKlineTable1);
-    addTable(kKlineTable2);
+    // 1) Keep original collection defaults (from shared tables)
+    addTable(ecu::kCollectionTable1);
+    addTable(ecu::kCollectionTable2);
+
+    // 2) Add any decoders not covered by the default tables
+    for (const auto &dec : GetSensorDecoders()) {
+        const auto key = std::make_pair(static_cast<uint8_t>(dec.id),
+                                        static_cast<uint8_t>(dec.subcommand));
+        if (seen.insert(key).second) {
+            merged.push_back(
+                KlineEntry{static_cast<uint8_t>(dec.id),
+                           static_cast<uint8_t>(dec.subcommand)});
+        }
+    }
+
     return merged;
 }
 
@@ -157,30 +147,28 @@ void ApplyColorZones(const SensorDecoderEntry &dec, SensorState &sensor) {
 }
 
 void Categorize(const SensorDecoderEntry &dec, int index) {
-    const std::string_view key(dec.key);
-    const std::string_view display(dec.display_name);
-    auto addTo = [&](const char *category) {
-        sensorCategories[category].push_back(index);
-    };
-    auto hasToken = [](std::string_view text, std::string_view token) {
-        return text.find(token) != std::string_view::npos;
-    };
-
-    if (dec.id == 0x46 || dec.id == 0x47 || dec.id == 0x60 || dec.id == 0x66 ||
-        dec.id == 0x6F || dec.id == 0x70 || hasToken(key, "rpm") ||
-        hasToken(key, "throttle") || hasToken(key, "tps")) {
-        addTo("Engine");
-    } else if (dec.id == 0x62 || dec.id == 0x63 || hasToken(key, "temp") ||
-               hasToken(display, "Temp")) {
-        addTo("Temps");
-    } else if (dec.id == 0x7D || dec.id == 0x61 || hasToken(key, "battery")) {
-        addTo("Battery");
-    } else if (hasToken(key, "lambda") || hasToken(key, "fuel") ||
-               hasToken(key, "map") || hasToken(key, "evap")) {
-        addTo("Lambda/Fuel");
-    } else {
-        addTo("Diagnostics");
+    // Use explicit category from SensorDecoderEntry instead of heuristics
+    const char *category_name = nullptr;
+    switch (dec.category) {
+    case ecu::SensorCategory::ENGINE:
+        category_name = "Engine";
+        break;
+    case ecu::SensorCategory::TEMPERATURE:
+        category_name = "Temps";
+        break;
+    case ecu::SensorCategory::ELECTRICAL:
+        category_name = "Battery";
+        break;
+    case ecu::SensorCategory::FUEL_LAMBDA:
+        category_name = "Lambda/Fuel";
+        break;
+    case ecu::SensorCategory::DIAGNOSTICS:
+    case ecu::SensorCategory::UNKNOWN:
+    default:
+        category_name = "Diagnostics";
+        break;
     }
+    sensorCategories[category_name].push_back(index);
 }
 } // namespace
 
@@ -260,10 +248,15 @@ void initSimulatedSensors() {
         const std::string_view unit = dec->unit;
         const std::string_view description = dec->description;
 
+        // Use collection_capable flag from SensorDecoderEntry
+        const SensorPollMode poll_mode = dec->collection_capable
+                                             ? SensorPollMode::COLLECTION
+                                             : SensorPollMode::INDIVIDUAL;
+
         SensorState sensor(displayName, dec->id, dec->subcommand, dec->decode,
                            unit, description, dec->display_min,
                            dec->display_max, dec->alert_min, dec->alert_max,
-                           dec->length);
+                           dec->length, poll_mode);
 
         ApplyColorZones(*dec, sensor);
         simulatedSensors.emplace_back(sensor);

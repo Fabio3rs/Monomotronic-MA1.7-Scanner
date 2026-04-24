@@ -288,34 +288,35 @@ ECUBackend::GetActiveSensorCollection() {
     // Acquire mutex (blocks worker thread like ReadDTCs does)
     std::lock_guard<std::mutex> lock(command_mutex_);
 
-    // Read RAM_B3 to determine active table
-    auto table_resp = ecu_->readECUMemory(0x00, 0xB3, 1);
-    if (!table_resp || table_resp->count == 0) {
-        return std::nullopt;
-    }
-
-    // Get first packet data
-    auto data = table_resp->packets[0].get_data();
-    if (data.empty()) {
-        return std::nullopt;
-    }
-
-    const uint8_t ram_b3 = data[0];
-
-    // Table selection logic matching DecodeSensorCollection()
-    const auto *table = (ram_b3 & 0x01)   ? &kCollectionTable2
-                        : (ram_b3 & 0x02) ? &kCollectionTable1
+    // Table selection logic matching DetermineCollectionTable()/DecodeSensorCollection()
+    const int table_id = DetermineCollectionTable();
+    const auto *table = (table_id == 2)   ? &kCollectionTable2
+                        : (table_id == 1) ? &kCollectionTable1
                                           : nullptr;
 
     if (table == nullptr) {
         return std::nullopt; // Unknown table selection
     }
 
-    // Extract sensor IDs from selected table
+    // Extract sensor IDs from selected table (only collection-capable sensors)
     std::vector<std::pair<int, int>> sensor_ids;
     sensor_ids.reserve(10);
     for (const auto &[id, subcmd] : *table) {
-        sensor_ids.emplace_back(static_cast<int>(id), static_cast<int>(subcmd));
+        if (sensors_) {
+            // Respect pollMode if sensors_ is available
+            for (const auto &sensor : *sensors_) {
+                if (sensor.id == static_cast<int>(id) &&
+                    sensor.subcmd == static_cast<int>(subcmd) &&
+                    sensor.pollMode == SensorPollMode::COLLECTION) {
+                    sensor_ids.emplace_back(static_cast<int>(id),
+                                            static_cast<int>(subcmd));
+                    break;
+                }
+            }
+        } else {
+            sensor_ids.emplace_back(static_cast<int>(id),
+                                    static_cast<int>(subcmd));
+        }
     }
 
     return sensor_ids;
@@ -611,11 +612,20 @@ void ECUBackend::PartitionSensors(
 
     for (size_t i = 0; i < active_count; ++i) {
         const int idx = active_indices[i];
+        if (!sensors_ || idx < 0 ||
+            static_cast<size_t>(idx) >= sensors_->size()) {
+            continue;
+        }
         bool handled = false;
 
         if (lookup) {
             for (size_t slot = 0; slot < lookup->size(); ++slot) {
                 if ((*lookup)[slot] == idx) {
+                    // Only route via collection if sensor prefers it
+                    if ((*sensors_)[static_cast<size_t>(idx)].pollMode ==
+                        SensorPollMode::INDIVIDUAL) {
+                        break;
+                    }
                     requested_slots[slot] = true;
                     if (collection_count < kMaxSensors) {
                         collection_indices[collection_count++] = idx;

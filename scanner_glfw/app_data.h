@@ -93,6 +93,7 @@ extern const ImVec4 GraphColors[];
 
 // --- Estruturas de dados simuladas ---
 enum class SensorStatus { OK, WARN, CRITICAL, STALE };
+enum class SensorPollMode { COLLECTION, INDIVIDUAL };
 
 struct SimulatedDTC {
     std::string code;
@@ -119,6 +120,7 @@ struct SensorState {
     double alertMax;
     SensorStatus status;
     double lastUpdateTime;
+    SensorPollMode pollMode;
 
     // Color zones for visual feedback (ordered by threshold)
     std::vector<Colors::ColorZone> colorZones;
@@ -134,7 +136,8 @@ struct SensorState {
                 std::function<double(int)> d = nullptr, std::string_view u = "",
                 std::string_view desc = "", double dmin = NAN,
                 double dmax = NAN, double amin = NAN, double amax = NAN,
-                int len = 1);
+                int len = 1,
+                SensorPollMode mode = SensorPollMode::COLLECTION);
     void pushSample(int raw, double current_time);
 };
 extern std::vector<SensorState> simulatedSensors;

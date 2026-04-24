@@ -131,15 +131,7 @@ option(BUILD_TESTS "Build unit tests" OFF)
 if(BUILD_TESTS)
     enable_testing()
 
-    # Example unit test for CircleMTIO
-    add_executable(test_circlemtio tests/test_circlemtio.cpp)
-    target_link_libraries(test_circlemtio PRIVATE ecuserial_lib)
-    add_test(NAME CircleMTIO COMMAND test_circlemtio)
-
-    # Example unit test for ECUResponseCollection
-    add_executable(test_response_collection tests/test_response_collection.cpp)
-    target_link_libraries(test_response_collection PRIVATE ecuserial_lib)
-    add_test(NAME ResponseCollection COMMAND test_response_collection)
+    # (No root-level tests registered; scanner_glfw handles its own if present)
 endif()
 
 # ========== Documentation ==========

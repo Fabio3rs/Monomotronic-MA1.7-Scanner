@@ -92,6 +92,14 @@ void LiveScreen::Update(float delta_time) {
         WriteRecordingSample();
     }
 
+    // Toast timer
+    if (show_recording_toast_) {
+        recording_toast_timer_ -= delta_time;
+        if (recording_toast_timer_ <= 0.0f) {
+            show_recording_toast_ = false;
+        }
+    }
+
     // Fade snapshot flash
     if (snapshot_flash_alpha_ > 0.0f) {
         snapshot_flash_alpha_ -= delta_time * 3.0f; // Fade over 0.33s
@@ -160,6 +168,41 @@ void LiveScreen::Render() {
 
     // Render modal
     sensor_list_modal_.Render();
+
+    // Recording toast (reuse GraphScreen style)
+    if (show_recording_toast_) {
+        ImDrawList *draw_list = ImGui::GetWindowDrawList();
+        const ImVec2 vp_size = ImGui::GetIO().DisplaySize;
+        const float toast_width = 420.0f;
+        const float toast_height = 90.0f;
+        const ImVec2 toast_pos((vp_size.x - toast_width) * 0.5f,
+                               vp_size.y - toast_height - 120.0f);
+        const ImVec2 toast_max(toast_pos.x + toast_width,
+                               toast_pos.y + toast_height);
+
+        const float alpha = std::min(1.0f, recording_toast_timer_);
+        ImVec4 bg_color = recording_toast_error_
+                              ? Colors::Status::CRITICAL
+                              : ThemeManager::Instance().GetSuccessColor();
+        bg_color.w = 0.9f * alpha;
+
+        draw_list->AddRectFilled(
+            toast_pos, toast_max,
+            ImGui::ColorConvertFloat4ToU32(bg_color), 6.0f);
+
+        ImVec4 border_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
+        draw_list->AddRect(toast_pos, toast_max,
+                           ImGui::ColorConvertFloat4ToU32(border_color), 6.0f,
+                           0, 2.0f);
+
+        constexpr float text_padding = 10.0f;
+        const ImVec2 text_pos(toast_pos.x + text_padding,
+                              toast_pos.y + text_padding);
+        ImVec4 text_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
+        draw_list->AddText(text_pos,
+                           ImGui::ColorConvertFloat4ToU32(text_color),
+                           recording_toast_message_.c_str());
+    }
 
     ImGui::PopStyleVar();
 }
@@ -234,17 +277,18 @@ void LiveScreen::RenderTopControls() {
                                   ImVec4(0.8f, 0.2f, 0.2f, alpha));
         }
 
+        ImGui::BeginDisabled(simulatedSensors.empty());
         if (ImGui::Button(was_recording ? "\uF04D Stop Rec" : "\uF111 Rec",
                           ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) {
             if (was_recording) {
                 StopRecording();
             } else {
-                // E.2: Check return value and signal errors
                 if (!StartRecording()) {
                     fprintf(stderr, "ERROR: Failed to start recording\n");
                 }
             }
         }
+        ImGui::EndDisabled();
 
         // C.41: Pop using saved state to guarantee balance
         if (was_recording) {
@@ -317,6 +361,24 @@ void LiveScreen::RenderTopControls() {
 
     ImGui::SameLine();
     ImGui::TextColored(theme.GetSecondaryColor(), "Filter");
+
+    // Recording status text
+    if (RecordingManager::Instance().IsRecording()) {
+        const uint64_t samples = RecordingManager::Instance().GetSampleCount();
+        const std::string &path = RecordingManager::Instance().GetCurrentPath();
+
+        std::string short_path = path;
+        const std::string marker = "/recordings/";
+        const auto pos = path.find(marker);
+        if (pos != std::string::npos) {
+            short_path = path.substr(pos + 1); // keep recordings/...
+        }
+
+        ImGui::SameLine(0.0f, SPACING);
+        ImGui::TextColored(theme.GetAccentColor(), "REC: %llu samples \u2022 %s",
+                           static_cast<unsigned long long>(samples),
+                           short_path.c_str());
+    }
 }
 
 void LiveScreen::RenderSensorTable() {
@@ -408,12 +470,34 @@ bool LiveScreen::IsSensorPinned(int sensor_idx) const {
 // Recording methods
 bool LiveScreen::StartRecording() {
     const std::vector<int> indices = GetVisibleSensorIndices();
-    return RecordingManager::Instance().StartRecording(simulatedSensors,
-                                                       indices);
+    const bool started =
+        RecordingManager::Instance().StartRecording(simulatedSensors, indices);
+
+    if (started) {
+        recording_toast_message_ = "Recording started";
+        recording_toast_error_ = false;
+        recording_toast_timer_ = 3.0f;
+        show_recording_toast_ = true;
+    } else {
+        recording_toast_message_ = RecordingManager::Instance().GetLastError();
+        if (recording_toast_message_.empty()) {
+            recording_toast_message_ = "Failed to start recording";
+        }
+        recording_toast_error_ = true;
+        recording_toast_timer_ = 5.0f;
+        show_recording_toast_ = true;
+    }
+
+    return started;
 }
 
 void LiveScreen::StopRecording() {
     RecordingManager::Instance().StopRecording();
+
+    recording_toast_message_ = "Recording stopped";
+    recording_toast_error_ = false;
+    recording_toast_timer_ = 3.0f;
+    show_recording_toast_ = true;
 }
 
 void LiveScreen::WriteRecordingSample() {

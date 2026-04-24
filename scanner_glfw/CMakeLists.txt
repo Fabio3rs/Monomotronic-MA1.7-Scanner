@@ -46,6 +46,9 @@ file(GLOB ui_component_sources ui/components/*.cpp)
 file(GLOB ui_modal_sources ui/modals/*.cpp)
 file(GLOB data_sources data/*.cpp)
 file(GLOB utils_sources utils/*.cpp)
+set(test_sources tests/test_RecordingManager.cpp
+                 core/RecordingManager.cpp
+                 utils/FileIO.cpp)
 
 add_executable(example_glfw_vulkan
     ${sources}
@@ -67,3 +70,10 @@ add_executable(example_glfw_vulkan
 )
 
 target_link_libraries(example_glfw_vulkan ${LIBRARIES})
+
+# Tests (RecordingManager only to avoid multiple gtest mains)
+enable_testing()
+add_executable(glfw_tests ${test_sources})
+target_include_directories(glfw_tests PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends ..)
+target_link_libraries(glfw_tests PRIVATE gtest gtest_main Threads::Threads)
+add_test(NAME glfw_tests COMMAND glfw_tests)

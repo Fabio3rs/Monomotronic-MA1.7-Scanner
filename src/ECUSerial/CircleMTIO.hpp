@@ -42,7 +42,7 @@ template <class T> struct __attribute__((aligned(64))) singlevarnofsh {
  */
 template <size_t num, class T> class __attribute__((aligned(64))) CircleMTIO {
     std::array<T, num> elements;
-    std::array<singlevarnofsh<std::atomic<int>>, num> elements_state;
+    std::array<singlevarnofsh<std::atomic<int>>, num> elements_state{};
 
     std::atomic<size_t> reading_point{};
     std::atomic<size_t> writing_point{};

@@ -65,6 +65,8 @@ GLFWwindow *GetAppWindow() { return g_AppWindow; }
 
 // Core systems
 #include "core/AnimationSystem.h"
+#include "core/ECUBackend.h"
+#include "core/RecordingManager.h"
 #include "core/ScreenManager.h"
 #include "core/StateManager.h"
 #include "core/ThemeManager.h"
@@ -673,6 +675,13 @@ int main(int, char **) {
     check_vk_result(err);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+
+    // --- GRACEFUL SHUTDOWN SEQUENCE (bottom-up) ---
+    // Stop ECU backend worker thread first (before destroying resources it uses)
+    ECUBackend::Instance().Stop();
+
+    // Stop recording if active (fstream RAII will close on destruction)
+    RecordingManager::Instance().StopRecording();
 
     // --- CLEANUP SCREEN INSTANCES ---
     ScreenManager::Instance().Shutdown();

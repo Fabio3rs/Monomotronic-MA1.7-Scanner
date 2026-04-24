@@ -97,6 +97,19 @@ int SensorTable::Render(const std::vector<int> &sensor_indices,
 
             ImGui::SameLine();
             ImGui::Text("%s", sensor.name.c_str());
+            ImGui::SameLine();
+            const bool is_collection =
+                sensor.pollMode == SensorPollMode::COLLECTION;
+            const ImVec4 badge_color =
+                is_collection ? ThemeManager::Instance().GetSecondaryColor()
+                              : Colors::Status::STALE;
+            ImGui::TextColored(badge_color, is_collection ? "[COL]" : "[IND]");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip(
+                    is_collection
+                        ? "Coletado via requestSensorCollection (frame F4)"
+                        : "Lido individualmente via readECUMemory");
+            }
 
             // Column 2: Value + Unit
             ImGui::TableNextColumn();

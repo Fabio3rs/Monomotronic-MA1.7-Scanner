@@ -28,8 +28,14 @@ class RecordingManager {
 
     uint64_t GetSampleCount() const noexcept { return sample_count_; }
     const std::string &GetCurrentPath() const noexcept { return current_path_; }
+    const std::string &GetLastError() const noexcept { return last_error_; }
 
   private:
+    bool HasValidSensors(const std::vector<SensorState> &sensors) const
+        noexcept;
+    void FilterSensorIndices(const std::vector<SensorState> &sensors,
+                             std::vector<int> &indices);
+
     RecordingManager() = default;
     ~RecordingManager() = default;
 
@@ -44,6 +50,7 @@ class RecordingManager {
     std::ofstream recording_file_;
     std::string current_path_;
     std::vector<int> sensor_indices_;
+    std::string last_error_;
     bool recording_ = false;
     uint64_t sample_count_ = 0;
     uint64_t last_sample_sequence_ = 0;

@@ -2,6 +2,7 @@
 
 #include "../app_data.h"
 #include "../utils/FileIO.h"
+#include <algorithm>
 #include <ctime>
 #include <filesystem>
 #include <iomanip>
@@ -80,14 +81,34 @@ RecordingManager &RecordingManager::Instance() {
 bool RecordingManager::StartRecording(const std::vector<SensorState> &sensors,
                                       std::vector<int> sensor_indices) {
     if (recording_) {
+        last_error_.clear();
         return false;
     }
 
-    if (sensors.empty()) {
+    last_error_.clear();
+
+    if (!HasValidSensors(sensors)) {
+        last_error_ = "No sensors available for recording";
         return false;
     }
 
     sensor_indices_ = std::move(sensor_indices);
+    const bool had_indices = !sensor_indices_.empty();
+    FilterSensorIndices(sensors, sensor_indices_);
+
+    if (had_indices && sensor_indices_.empty()) {
+        last_error_ = "No valid sensors selected for recording";
+        return false;
+    }
+
+    const std::size_t valid_count =
+        CountValidSensors(sensors, sensor_indices_.empty() ? nullptr
+                                                           : &sensor_indices_);
+    if (valid_count == 0) {
+        last_error_ = "No valid sensors selected for recording";
+        sensor_indices_.clear();
+        return false;
+    }
 
     if (!OpenFile(sensors)) {
         sensor_indices_.clear();
@@ -114,6 +135,10 @@ void RecordingManager::StopRecording() {
     recording_ = false;
     loggingActive = false;
     sensor_indices_.clear();
+    sample_count_ = 0;
+    last_sample_sequence_ = 0;
+    first_sample_timestamp_sec_ = 0.0;
+    has_first_sample_timestamp_ = false;
 }
 
 void RecordingManager::Update(const std::vector<SensorState> &sensors,
@@ -131,6 +156,10 @@ void RecordingManager::Update(const std::vector<SensorState> &sensors,
     const auto now = std::chrono::steady_clock::now();
     if (!ShouldWriteSample(now)) {
         return;
+    }
+
+    if (sample_delta_sec < 0.0) {
+        sample_delta_sec = 0.0;
     }
 
     const std::vector<int> *indices =
@@ -152,6 +181,7 @@ void RecordingManager::Update(const std::vector<SensorState> &sensors,
 
     FileIO::WriteCSVRow(recording_file_, elapsed, delta_ms, sensors, indices);
     if (recording_file_.fail()) {
+        last_error_ = "Write failure during recording";
         CloseFile();
         recording_ = false;
         loggingActive = false;
@@ -182,6 +212,7 @@ bool RecordingManager::OpenFile(const std::vector<SensorState> &sensors) {
     recording_file_.open(current_path_, std::ios::out | std::ios::trunc);
     if (!recording_file_.is_open()) {
         current_path_.clear();
+        last_error_ = "Failed to open recording file";
         return false;
     }
 
@@ -218,6 +249,7 @@ bool RecordingManager::OpenFile(const std::vector<SensorState> &sensors) {
     FileIO::WriteCSVHeader(recording_file_, sensors, indices, true);
 
     if (recording_file_.fail()) {
+        last_error_ = "Failed to write recording header";
         CloseFile();
         std::error_code error;
         std::filesystem::remove(current_path_, error);
@@ -241,4 +273,23 @@ bool RecordingManager::ShouldWriteSample(
         return true;
     }
     return (now - last_sample_time_) >= sample_interval_;
+}
+
+bool RecordingManager::HasValidSensors(
+    const std::vector<SensorState> &sensors) const noexcept {
+    return !sensors.empty();
+}
+
+void RecordingManager::FilterSensorIndices(
+    const std::vector<SensorState> &sensors, std::vector<int> &indices) {
+    if (indices.empty()) {
+        return; // All sensors allowed
+    }
+
+    const int max_idx = static_cast<int>(sensors.size());
+    indices.erase(std::remove_if(indices.begin(), indices.end(),
+                                 [max_idx](int idx) {
+                                     return idx < 0 || idx >= max_idx;
+                                 }),
+                  indices.end());
 }
