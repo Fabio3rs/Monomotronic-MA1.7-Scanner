@@ -1,5 +1,6 @@
 #include "Modal.h"
 #include "../core/ThemeManager.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 
 Modal::Modal(const char *title) : title_(title) {}
@@ -29,73 +30,12 @@ bool Modal::Render(const std::function<void()> &content_func) {
         return false;
     }
 
-    // Update fade animation
-    const float dt = ImGui::GetIO().DeltaTime;
-    if (is_closing_) {
-        fade_alpha_ -= kFadeSpeed * dt;
-        if (fade_alpha_ <= 0.0f) {
-            fade_alpha_ = 0.0f;
-            is_open_ = false;
-            is_closing_ = false;
-            ImGui::CloseCurrentPopup();
-            return false;
-        }
-    } else {
-        fade_alpha_ += kFadeSpeed * dt;
-        if (fade_alpha_ > 1.0f) {
-            fade_alpha_ = 1.0f;
-        }
-    }
-
-    // Calculate modal size with proper margins
-    const ImVec2 modal_size = Layout::GetModalSize(width_ratio_, height_ratio_);
-
-    ImGui::SetNextWindowSize(modal_size, ImGuiCond_Always);
-    ImGui::SetNextWindowPos(
-        ImVec2((ImGui::GetIO().DisplaySize.x - modal_size.x) * 0.5f,
-               (ImGui::GetIO().DisplaySize.y - modal_size.y) * 0.5f),
-        ImGuiCond_Always);
-
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, fade_alpha_);
-    const bool popup_open = ImGui::BeginPopupModal(
-        title_.c_str(), &is_open_,
-        flags_ | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-
-    if (popup_open) {
-        // Detect click outside popup to close it
-        if (ImGui::IsMouseClicked(0) &&
-            !ImGui::IsWindowHovered(
-                ImGuiHoveredFlags_ChildWindows |
-                ImGuiHoveredFlags_AllowWhenBlockedByPopup)) {
-            Close();
-        }
-
-        // Render user content
-        if (content_func) {
-            content_func();
-        }
-
-        ImGui::EndPopup();
-    }
-    ImGui::PopStyleVar();
-
-    // If user closed via X button, sync state
-    if (!popup_open && is_open_ && !is_closing_) {
+    // Sync with ImGui popup state: if user pressed ESC or clicked outside,
+    // ImGui closes the popup but we may still think it is open.
+    if (!ImGui::IsPopupOpen(title_.c_str()) && !is_closing_) {
         is_open_ = false;
         is_closing_ = false;
         fade_alpha_ = 0.0f;
-    }
-
-    return is_open_;
-}
-
-bool Modal::RenderWithButtons(const std::function<void()> &content_func,
-                              bool *confirmed) {
-    if (confirmed) {
-        *confirmed = false;
-    }
-
-    if (!is_open_) {
         return false;
     }
 
@@ -125,7 +65,83 @@ bool Modal::RenderWithButtons(const std::function<void()> &content_func,
                (ImGui::GetIO().DisplaySize.y - modal_size.y) * 0.5f),
         ImGuiCond_Always);
 
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, fade_alpha_);
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, fade_alpha_);
+    const bool popup_open = ImGui::BeginPopupModal(
+        title_.c_str(), &is_open_,
+        flags_ | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+
+    if (popup_open) {
+        // Detect click outside popup to close it
+        if (ImGui::IsMouseClicked(0) &&
+            !ImGui::IsWindowHovered(
+                ImGuiHoveredFlags_ChildWindows |
+                ImGuiHoveredFlags_AllowWhenBlockedByPopup)) {
+            Close();
+        }
+
+        if (content_func) {
+            content_func();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    // If user closed via X button, sync state
+    if (!popup_open && is_open_ && !is_closing_) {
+        is_open_ = false;
+        is_closing_ = false;
+        fade_alpha_ = 0.0f;
+    }
+
+    return is_open_;
+}
+
+bool Modal::RenderWithButtons(const std::function<void()> &content_func,
+                              bool *confirmed) {
+    if (confirmed) {
+        *confirmed = false;
+    }
+
+    if (!is_open_) {
+        return false;
+    }
+
+    // Sync with ImGui popup state
+    if (!ImGui::IsPopupOpen(title_.c_str()) && !is_closing_) {
+        is_open_ = false;
+        is_closing_ = false;
+        fade_alpha_ = 0.0f;
+        return false;
+    }
+
+    const float dt = ImGui::GetIO().DeltaTime;
+    if (is_closing_) {
+        fade_alpha_ -= kFadeSpeed * dt;
+        if (fade_alpha_ <= 0.0f) {
+            fade_alpha_ = 0.0f;
+            is_open_ = false;
+            is_closing_ = false;
+            ImGui::CloseCurrentPopup();
+            return false;
+        }
+    } else {
+        fade_alpha_ += kFadeSpeed * dt;
+        if (fade_alpha_ > 1.0f) {
+            fade_alpha_ = 1.0f;
+        }
+    }
+
+    const ImVec2 modal_size = Layout::GetModalSize(width_ratio_, height_ratio_);
+
+    ImGui::SetNextWindowSize(modal_size, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(
+        ImVec2((ImGui::GetIO().DisplaySize.x - modal_size.x) * 0.5f,
+               (ImGui::GetIO().DisplaySize.y - modal_size.y) * 0.5f),
+        ImGuiCond_Always);
+
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, fade_alpha_);
     const bool popup_open = ImGui::BeginPopupModal(
         title_.c_str(), &is_open_,
         flags_ | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
@@ -142,10 +158,9 @@ bool Modal::RenderWithButtons(const std::function<void()> &content_func,
             Close();
         }
 
-        // Content area (reserve space for buttons at bottom)
         const float button_area_height = Layout::Modal::BUTTON_AREA_HEIGHT;
         const ImVec2 content_size =
-            ImVec2(modal_size.x - Layout::Modal::CONTENT_PADDING, // Padding
+            ImVec2(modal_size.x - Layout::Modal::CONTENT_PADDING,
                    modal_size.y - button_area_height -
                        Layout::Modal::TITLE_AND_BUTTONS_HEIGHT);
 
@@ -155,7 +170,6 @@ bool Modal::RenderWithButtons(const std::function<void()> &content_func,
         }
         ImGui::EndChild();
 
-        // Buttons at bottom
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -163,28 +177,25 @@ bool Modal::RenderWithButtons(const std::function<void()> &content_func,
         const float btn_height = Layout::Button::MODAL_HEIGHT;
         const float spacing = Layout::Padding::MEDIUM;
 
-        // Center buttons
         const float total_btn_width = btn_width * 2 + spacing;
         ImGui::SetCursorPosX((modal_size.x - total_btn_width) * 0.5f);
 
         auto &theme = ThemeManager::Instance();
 
-        // OK button
-        ImGui::PushStyleColor(ImGuiCol_Button, theme.GetPrimaryColor());
-        if (ImGui::Button("\u2713 OK",
-                          ImVec2(btn_width, btn_height))) { // \u2713 OK
-            if (confirmed) {
-                *confirmed = true;
+        {
+            UI::StyleColorGuard ok_color;
+            ok_color.push(ImGuiCol_Button, theme.GetPrimaryColor());
+            if (ImGui::Button("\u2713 OK", ImVec2(btn_width, btn_height))) {
+                if (confirmed) {
+                    *confirmed = true;
+                }
+                Close();
             }
-            Close();
         }
-        ImGui::PopStyleColor();
 
         ImGui::SameLine();
 
-        // Cancel button
-        if (ImGui::Button("\u2715 Cancel",
-                          ImVec2(btn_width, btn_height))) { // \u2715 Cancel
+        if (ImGui::Button("\u2715 Cancel", ImVec2(btn_width, btn_height))) {
             if (confirmed) {
                 *confirmed = false;
             }
@@ -193,9 +204,7 @@ bool Modal::RenderWithButtons(const std::function<void()> &content_func,
 
         ImGui::EndPopup();
     }
-    ImGui::PopStyleVar();
 
-    // If user closed via X button, sync state
     if (!popup_open && is_open_ && !is_closing_) {
         is_open_ = false;
         is_closing_ = false;

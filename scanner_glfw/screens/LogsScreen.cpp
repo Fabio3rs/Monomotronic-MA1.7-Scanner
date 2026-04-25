@@ -4,6 +4,7 @@
 #include "../core/StateManager.h"
 #include "../core/ThemeManager.h"
 #include "../utils/Colors.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include <cstdio>
 #include <ctime>
@@ -50,8 +51,9 @@ void LogsScreen::Update(float delta_time) {
 
 void LogsScreen::Render() {
     // Apply fade
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GetFadeAlpha());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, GetFadeAlpha());
+    style.push(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
 
     // Use all available height (BottomNav is rendered separately by main.cpp)
     const float content_height = ImGui::GetContentRegionAvail().y;
@@ -68,7 +70,6 @@ void LogsScreen::Render() {
     RenderLogContent();
 
     ImGui::EndChild();
-    ImGui::PopStyleVar(2);
 }
 
 bool LogsScreen::HandleGesture(const GestureEvent &event) {

@@ -59,6 +59,8 @@ class DashScreen : public BaseScreen {
     void RenderRemoveConfirmation();
     void RenderResetConfirmation();
 
+    void RenderWidget(int widget_idx, float width, float height);
+
     void AddWidget(int sensor_idx, DashWidgetType type);
     void RemoveWidget(int widget_idx);
     void ChangeWidgetType(int widget_idx, DashWidgetType new_type);

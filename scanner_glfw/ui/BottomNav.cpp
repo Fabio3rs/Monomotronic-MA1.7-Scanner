@@ -2,12 +2,12 @@
 #include "../core/AnimationSystem.h"
 #include "../core/ThemeManager.h"
 #include "../utils/Colors.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include "components/Badge.h"
 #include <algorithm>
 
 void BottomNav::UpdateBadgeCounts() {
-    // I.11: Sync with global state
     logging_active_ = loggingActive;
 
     dtc_count_ = static_cast<int>(
@@ -16,7 +16,7 @@ void BottomNav::UpdateBadgeCounts() {
 }
 
 void BottomNav::Render(float bar_height) {
-    UpdateBadgeCounts(); // Sync badges before rendering
+    UpdateBadgeCounts();
 
     auto &theme = ThemeManager::Instance();
 
@@ -31,17 +31,14 @@ void BottomNav::Render(float bar_height) {
         separator_min, separator_max,
         ImGui::ColorConvertFloat4ToU32(theme.GetBorderColor()));
 
-    // Begin bottom bar
     ImGui::SetCursorPosY(vp_size.y - bar_height);
     ImGui::BeginChild("BottomNav", ImVec2(0, bar_height), false,
                       ImGuiWindowFlags_NoScrollbar);
 
-    // Calculate button widths (5 equal buttons)
     const float total_width = vp_size.x;
     const float btn_width = total_width / 5.0f;
     const float btn_height = bar_height;
 
-    // Render 5 tab buttons with icons (Font Awesome 4)
     RenderTabButton("\uF1FE LIVE", Screen::LIVE, btn_width, btn_height);
     ImGui::SameLine(0, 0);
 
@@ -64,18 +61,17 @@ void BottomNav::RenderTabButton(const char *label, Screen screen,
     auto &theme = ThemeManager::Instance();
     const bool is_active = (GetCurrentScreen() == screen);
 
-    // Custom button styling for active/inactive state
+    UI::StyleColorGuard colors;
     if (is_active) {
-        ImGui::PushStyleColor(ImGuiCol_Button, theme.GetPrimaryColor());
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, theme.GetPrimaryColor());
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, theme.GetPrimaryColor());
+        colors.push(ImGuiCol_Button, theme.GetPrimaryColor());
+        colors.push(ImGuiCol_ButtonHovered, theme.GetPrimaryColor());
+        colors.push(ImGuiCol_ButtonActive, theme.GetPrimaryColor());
     } else {
-        ImGui::PushStyleColor(ImGuiCol_Button, theme.GetBackgroundColor());
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, theme.GetHoverColor());
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                              ImVec4(theme.GetPrimaryColor().x,
-                                     theme.GetPrimaryColor().y,
-                                     theme.GetPrimaryColor().z, 0.3f));
+        colors.push(ImGuiCol_Button, theme.GetBackgroundColor());
+        colors.push(ImGuiCol_ButtonHovered, theme.GetHoverColor());
+        colors.push(ImGuiCol_ButtonActive,
+                    ImVec4(theme.GetPrimaryColor().x, theme.GetPrimaryColor().y,
+                           theme.GetPrimaryColor().z, 0.3f));
     }
 
     const ImVec2 btn_min = ImGui::GetCursorScreenPos();
@@ -88,8 +84,6 @@ void BottomNav::RenderTabButton(const char *label, Screen screen,
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Go to %s", label);
     }
-
-    ImGui::PopStyleColor(3);
 
     // Render active indicator (bottom border)
     if (is_active) {
@@ -104,12 +98,10 @@ void BottomNav::RenderTabButton(const char *label, Screen screen,
 
     // Render badges
     if (screen == Screen::GRAPH && logging_active_) {
-        // Red dot for active logging
         auto &anim = AnimationSystem::Instance();
-        const float pulse = anim.GetPulse(2.0f); // 2 Hz pulsing
-        const float alpha = 0.6f + 0.4f * pulse; // 0.6 - 1.0
+        const float pulse = anim.GetPulse(2.0f);
+        const float alpha = 0.6f + 0.4f * pulse;
 
-        // ES.10: Named constant for badge positioning
         constexpr float badge_margin = Layout::Badge::DOT_MARGIN;
         constexpr float badge_radius = Layout::Badge::DOT_RADIUS;
 
@@ -121,7 +113,6 @@ void BottomNav::RenderTabButton(const char *label, Screen screen,
     }
 
     if (screen == Screen::DTC && dtc_count_ > 0) {
-        // DTC count badge
         UI::Components::BadgeConfig config;
         config.background_color = Colors::Status::CRITICAL;
         UI::Components::Badge::RenderCountBadgeAtCorner(btn_min, btn_max,

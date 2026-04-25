@@ -106,9 +106,18 @@ void StateManager::SetSetting(const std::string &key,
     if (!db_)
         return;
 
-    std::string sql = "INSERT OR REPLACE INTO settings (key, value) VALUES ('" +
-                      key + "', '" + value + "');";
-    ExecuteSQL(sql);
+    const char *sql =
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return;
+    }
+    sqlite3_bind_text(stmt, 1, key.c_str(), static_cast<int>(key.size()),
+                      SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, value.c_str(), static_cast<int>(value.size()),
+                      SQLITE_STATIC);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
 }
 
 std::string StateManager::GetSetting(const std::string &key,
@@ -116,12 +125,14 @@ std::string StateManager::GetSetting(const std::string &key,
     if (!db_)
         return default_val;
 
-    std::string sql = "SELECT value FROM settings WHERE key = '" + key + "';";
-
+    const char *sql = "SELECT value FROM settings WHERE key = ?;";
     sqlite3_stmt *stmt = nullptr;
-    if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         return default_val;
     }
+
+    sqlite3_bind_text(stmt, 1, key.c_str(), static_cast<int>(key.size()),
+                      SQLITE_STATIC);
 
     std::string result = default_val;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -140,14 +151,36 @@ int StateManager::GetSettingInt(const std::string &key, int default_val) {
     const std::string value = GetSetting(key, "");
     if (value.empty())
         return default_val;
-    return std::stoi(value);
+    try {
+        return std::stoi(value);
+    } catch (...) {
+        return default_val;
+    }
 }
 
 float StateManager::GetSettingFloat(const std::string &key, float default_val) {
     const std::string value = GetSetting(key, "");
     if (value.empty())
         return default_val;
-    return std::stof(value);
+    try {
+        return std::stof(value);
+    } catch (...) {
+        return default_val;
+    }
+}
+
+// Generic helper for clearing a table
+static bool ClearTable(sqlite3 *db, const char *table_name) {
+    if (!db || !table_name)
+        return false;
+    std::string sql = "DELETE FROM ";
+    sql += table_name;
+    sql += ";";
+    char *err = nullptr;
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &err);
+    if (err)
+        sqlite3_free(err);
+    return rc == SQLITE_OK;
 }
 
 // Custom sensors (LIVE screen)
@@ -156,16 +189,23 @@ void StateManager::SaveCustomSensors(const std::vector<int> &sensor_indices) {
     if (!db_)
         return;
 
-    // Clear existing
-    ExecuteSQL("DELETE FROM custom_sensors;");
+    ClearTable(db_, "custom_sensors");
 
-    // Insert new
-    for (size_t i = 0; i < sensor_indices.size(); ++i) {
-        std::stringstream ss;
-        ss << "INSERT INTO custom_sensors (position, sensor_index) VALUES ("
-           << i << ", " << sensor_indices[i] << ");";
-        ExecuteSQL(ss.str());
+    const char *sql =
+        "INSERT INTO custom_sensors (position, sensor_index) VALUES (?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return;
     }
+
+    for (size_t i = 0; i < sensor_indices.size(); ++i) {
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int(stmt, 1, static_cast<int>(i));
+        sqlite3_bind_int(stmt, 2, sensor_indices[i]);
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
 }
 
 std::vector<int> StateManager::LoadCustomSensors() {
@@ -197,10 +237,15 @@ void StateManager::SaveDashboardWidgets(
     if (!db_)
         return;
 
-    // Clear existing
-    ExecuteSQL("DELETE FROM dashboard_widgets;");
+    ClearTable(db_, "dashboard_widgets");
 
-    // Insert new
+    const char *sql = "INSERT INTO dashboard_widgets (position, sensor_index, "
+                      "widget_type) VALUES (?, ?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return;
+    }
+
     for (size_t i = 0; i < widgets.size(); ++i) {
         std::string widget_type_str;
         switch (widgets[i].type) {
@@ -218,13 +263,16 @@ void StateManager::SaveDashboardWidgets(
             break;
         }
 
-        std::stringstream ss;
-        ss << "INSERT INTO dashboard_widgets (position, sensor_index, "
-              "widget_type) VALUES ("
-           << i << ", " << widgets[i].sensor_idx << ", '" << widget_type_str
-           << "');";
-        ExecuteSQL(ss.str());
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int(stmt, 1, static_cast<int>(i));
+        sqlite3_bind_int(stmt, 2, widgets[i].sensor_idx);
+        sqlite3_bind_text(stmt, 3, widget_type_str.c_str(),
+                          static_cast<int>(widget_type_str.size()),
+                          SQLITE_STATIC);
+        sqlite3_step(stmt);
     }
+    sqlite3_finalize(stmt);
 }
 
 std::vector<DashboardWidget> StateManager::LoadDashboardWidgets() {
@@ -247,7 +295,7 @@ std::vector<DashboardWidget> StateManager::LoadDashboardWidgets() {
 
         WidgetType widget_type = WidgetType::NUMERIC;
         if (type_str) {
-            const std::string type_s(type_str);
+            const std::string_view type_s(type_str);
             if (type_s == "gauge")
                 widget_type = WidgetType::GAUGE;
             else if (type_s == "graph")
@@ -269,16 +317,21 @@ void StateManager::SavePinnedSensors(const std::vector<int> &sensor_indices) {
     if (!db_)
         return;
 
-    // Clear existing
-    ExecuteSQL("DELETE FROM pinned_sensors;");
+    ClearTable(db_, "pinned_sensors");
 
-    // Insert new
-    for (const int idx : sensor_indices) {
-        std::stringstream ss;
-        ss << "INSERT INTO pinned_sensors (sensor_index) VALUES (" << idx
-           << ");";
-        ExecuteSQL(ss.str());
+    const char *sql = "INSERT INTO pinned_sensors (sensor_index) VALUES (?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return;
     }
+
+    for (const int idx : sensor_indices) {
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int(stmt, 1, idx);
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
 }
 
 std::vector<int> StateManager::LoadPinnedSensors() {
@@ -308,16 +361,23 @@ void StateManager::SaveGraphSensors(const std::vector<int> &sensor_indices) {
     if (!db_)
         return;
 
-    // Clear existing
-    ExecuteSQL("DELETE FROM graph_sensors;");
+    ClearTable(db_, "graph_sensors");
 
-    // Insert new
-    for (size_t i = 0; i < sensor_indices.size(); ++i) {
-        std::stringstream ss;
-        ss << "INSERT INTO graph_sensors (position, sensor_index) VALUES (" << i
-           << ", " << sensor_indices[i] << ");";
-        ExecuteSQL(ss.str());
+    const char *sql =
+        "INSERT INTO graph_sensors (position, sensor_index) VALUES (?, ?);";
+    sqlite3_stmt *stmt = nullptr;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return;
     }
+
+    for (size_t i = 0; i < sensor_indices.size(); ++i) {
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int(stmt, 1, static_cast<int>(i));
+        sqlite3_bind_int(stmt, 2, sensor_indices[i]);
+        sqlite3_step(stmt);
+    }
+    sqlite3_finalize(stmt);
 }
 
 std::vector<int> StateManager::LoadGraphSensors() {

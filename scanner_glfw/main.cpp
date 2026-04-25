@@ -75,6 +75,7 @@ GLFWwindow *GetAppWindow() { return g_AppWindow; }
 // UI components
 #include "ui/BottomNav.h"
 #include "ui/TopBar.h"
+#include "utils/ImGuiRAII.h"
 
 // Font, color, sensor and simulated-data definitions are centralized in
 // app_data.*
@@ -634,7 +635,6 @@ int main(int, char **) {
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoDocking;
         ImGui::Begin("MainApp", nullptr, window_flags);
-        ImGui::PopStyleVar(3);
 
         const float top_bar_height = 30.0f;
         const float bottom_nav_height = 50.0f;
@@ -661,6 +661,8 @@ int main(int, char **) {
         }
 
         ImGui::End();
+
+        ImGui::PopStyleVar(3);
 
         ImGui::Render();
         ImDrawData *main_draw_data = ImGui::GetDrawData();

@@ -7,6 +7,7 @@
 #include "../core/ThemeManager.h"
 #include "../utils/Colors.h"
 #include "../utils/FontGuard.h" // C.21: RAII for font management
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include <algorithm>
 #include <ctime>
@@ -77,7 +78,8 @@ void DTCScreen::Update(float delta_time) {
 void DTCScreen::Render() {
 
     // Apply fade
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GetFadeAlpha());
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, GetFadeAlpha());
 
     // Content area (cursor already at (0,0) within ContentArea parent)
     const float content_height = ImGui::GetContentRegionAvail().y;
@@ -111,8 +113,6 @@ void DTCScreen::Render() {
     RenderPagination();
 
     ImGui::EndChild();
-
-    ImGui::PopStyleVar();
 }
 
 bool DTCScreen::HandleGesture(const GestureEvent &event) {
@@ -365,7 +365,7 @@ void DTCScreen::RenderClearConfirmation() {
 
     bool confirmed = false;
     clear_confirm_modal_.RenderWithButtons(
-        [this]() {
+        []() {
             auto &theme = ThemeManager::Instance();
 
             ImGui::Text("Clear all DTCs?");

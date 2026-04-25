@@ -41,6 +41,8 @@ class LiveScreen : public BaseScreen {
     void RenderSensorTable();
     void RenderAlertBanner();
 
+    void RenderRecordingToast();
+
     std::vector<int> GetVisibleSensorIndices() const;
     void ApplySubscriptions();
     bool HasCriticalSensors() const;

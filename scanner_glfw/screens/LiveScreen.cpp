@@ -7,6 +7,8 @@
 #include "../core/ThemeManager.h"
 #include "../utils/Colors.h"
 #include "../utils/FileIO.h"
+#include "../utils/FontGuard.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -117,8 +119,8 @@ void LiveScreen::Update(float delta_time) {
 }
 
 void LiveScreen::Render() {
-    // Apply fade
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GetFadeAlpha());
+    UI::StyleVarGuard style_vars;
+    style_vars.push(ImGuiStyleVar_Alpha, GetFadeAlpha());
 
     // Content area (cursor already at (0,0) within ContentArea parent)
     const float content_height = ImGui::GetContentRegionAvail().y;
@@ -139,232 +141,190 @@ void LiveScreen::Render() {
     }
 
     RenderTopControls();
-
     ImGui::Spacing();
 
     // Calculate remaining height for sensor table + alert banner
     const float controls_height = ImGui::GetCursorPosY();
     const float alert_banner_height = HasCriticalSensors() ? 60.0f : 0.0f;
-    const float table_height = content_height - controls_height -
-                               alert_banner_height - Layout::SPACING_MEDIUM;
+    const float table_area_height =
+        content_height - controls_height - Layout::SPACING_MEDIUM;
 
-    // Render sensor table inside a child window (FIX: Alert banner inside
-    // child)
-    ImGui::BeginChild("SensorTableArea",
-                      ImVec2(0, table_height + alert_banner_height), true,
+    // Render sensor table inside a child window
+    ImGui::BeginChild("SensorTableArea", ImVec2(0, table_area_height), true,
                       ImGuiWindowFlags_NoScrollbar);
 
     RenderSensorTable();
 
-    // Render alert banner INSIDE the child window (BUG FIX #1)
+    // Render alert banner below the table if needed
     if (HasCriticalSensors()) {
         ImGui::Spacing();
         RenderAlertBanner();
     }
 
     ImGui::EndChild();
-
     ImGui::EndChild();
 
     // Render modal
     sensor_list_modal_.Render();
 
-    // Recording toast (reuse GraphScreen style)
+    // Recording toast
     if (show_recording_toast_) {
-        ImDrawList *draw_list = ImGui::GetWindowDrawList();
-        const ImVec2 vp_size = ImGui::GetIO().DisplaySize;
-        const float toast_width = 420.0f;
-        const float toast_height = 90.0f;
-        const ImVec2 toast_pos((vp_size.x - toast_width) * 0.5f,
-                               vp_size.y - toast_height - 120.0f);
-        const ImVec2 toast_max(toast_pos.x + toast_width,
-                               toast_pos.y + toast_height);
-
-        const float alpha = std::min(1.0f, recording_toast_timer_);
-        ImVec4 bg_color = recording_toast_error_
-                              ? Colors::Status::CRITICAL
-                              : ThemeManager::Instance().GetSuccessColor();
-        bg_color.w = 0.9f * alpha;
-
-        draw_list->AddRectFilled(toast_pos, toast_max,
-                                 ImGui::ColorConvertFloat4ToU32(bg_color),
-                                 6.0f);
-
-        ImVec4 border_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
-        draw_list->AddRect(toast_pos, toast_max,
-                           ImGui::ColorConvertFloat4ToU32(border_color), 6.0f,
-                           0, 2.0f);
-
-        constexpr float text_padding = 10.0f;
-        const ImVec2 text_pos(toast_pos.x + text_padding,
-                              toast_pos.y + text_padding);
-        ImVec4 text_color = ImVec4(1.0f, 1.0f, 1.0f, alpha);
-        draw_list->AddText(text_pos, ImGui::ColorConvertFloat4ToU32(text_color),
-                           recording_toast_message_.c_str());
+        RenderRecordingToast();
     }
+}
 
-    ImGui::PopStyleVar();
+void LiveScreen::RenderRecordingToast() {
+    auto &theme = ThemeManager::Instance();
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    const ImVec2 vp_size = ImGui::GetIO().DisplaySize;
+    const float toast_width = 420.0f;
+    const float toast_height = 90.0f;
+    const ImVec2 toast_pos((vp_size.x - toast_width) * 0.5f,
+                           vp_size.y - toast_height - 120.0f);
+    const ImVec2 toast_max(toast_pos.x + toast_width,
+                           toast_pos.y + toast_height);
+
+    const float alpha = std::min(1.0f, recording_toast_timer_);
+    ImVec4 bg_color = recording_toast_error_ ? Colors::Status::CRITICAL
+                                             : theme.GetSuccessColor();
+    bg_color.w *= alpha;
+    ImVec4 text_color = theme.GetTextColor();
+    text_color.w *= alpha;
+
+    draw_list->AddRectFilled(toast_pos, toast_max,
+                             ImGui::ColorConvertFloat4ToU32(bg_color), 8.0f);
+
+    draw_list->AddRect(toast_pos, toast_max,
+                       ImGui::ColorConvertFloat4ToU32(theme.GetBorderColor()),
+                       8.0f, 0, 2.0f);
+
+    const char *icon = recording_toast_error_ ? "\u26A0" : "\u2713";
+    const char *msg = recording_toast_message_.empty()
+                          ? (recording_toast_error_ ? "Error" : "Success")
+                          : recording_toast_message_.c_str();
+
+    const ImVec2 icon_size = ImGui::CalcTextSize(icon);
+    const ImVec2 msg_size = ImGui::CalcTextSize(msg);
+    const float total_text_width = icon_size.x + msg_size.x + 12.0f;
+    const float start_x = toast_pos.x + (toast_width - total_text_width) * 0.5f;
+    const float text_y = toast_pos.y + (toast_height - icon_size.y) * 0.5f;
+
+    draw_list->AddText(ImVec2(start_x, text_y),
+                       ImGui::ColorConvertFloat4ToU32(text_color), icon);
+    draw_list->AddText(ImVec2(start_x + icon_size.x + 12.0f, text_y),
+                       ImGui::ColorConvertFloat4ToU32(text_color), msg);
 }
 
 bool LiveScreen::HandleGesture(const GestureEvent &event) {
-    // Handle swipe gestures for screen navigation
+    if (event.type == GestureType::SWIPE_RIGHT) {
+        SetCurrentScreen(Screen::LIVE);
+        return true;
+    }
     if (event.type == GestureType::SWIPE_LEFT) {
         SetCurrentScreen(Screen::GRAPH);
         return true;
     }
-
     return false;
 }
 
 void LiveScreen::RenderTopControls() {
     auto &theme = ThemeManager::Instance();
 
-    // Single row: Custom vs Default ECU list
-    if (ImGui::RadioButton("Custom", !show_all_sensors_)) {
-        show_all_sensors_ = false;
-        ApplySubscriptions();
-    }
+    // Pause/Resume button
+    const char *pause_icon = paused_ ? "\uF04B" : "\uF04C";
+    const char *pause_label = paused_ ? " Resume" : " Pause";
+    std::string pause_text = std::string(pause_icon) + pause_label;
 
-    ImGui::SameLine();
-
-    if (ImGui::RadioButton("Default", show_all_sensors_)) {
-        show_all_sensors_ = true;
-        ApplySubscriptions();
-    }
-
-    ImGui::SameLine();
-
-    // Edit button (always visible with placeholder)
-    if (!show_all_sensors_) {
-        if (ImGui::Button("\uF040 Edit",
-                          ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) { // FA pencil
-            sensor_list_modal_.Open(customSensorList, simulatedSensors.size());
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip("Customize visible sensors");
-        }
-    } else {
-        ImGui::BeginDisabled();
-        ImGui::Button("\uF040 Edit", ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT));
-        ImGui::EndDisabled();
-    }
-
-    ImGui::SameLine(0.0f, SPACING); // 8px spacing
-    if (!show_all_sensors_) {
-        if (ImGui::Button("Reset to ECU", ImVec2(WIDE_WIDTH, WIDE_HEIGHT))) {
-            customSensorList = defaultSensorList;
-            // Save to state
-            auto &state = StateManager::Instance();
-            if (state.IsInitialized()) {
-                state.SaveCustomSensors(customSensorList);
-            }
-            ApplySubscriptions();
-        }
-    } else {
-        ImGui::Dummy(ImVec2(WIDE_WIDTH, WIDE_HEIGHT));
-    }
-
-    ImGui::SameLine(0.0f, SPACING); // 8px spacing
-
-    // C.21: Save state before modification to ensure Push/Pop balance
-    {
-        const bool was_recording = RecordingManager::Instance().IsRecording();
-
-        // Visual feedback: pulsing red button when recording
-        if (was_recording) {
-            auto &anim = AnimationSystem::Instance();
-            const float pulse = anim.GetPulse(2.0f); // 2 Hz
-            const float alpha = 0.5f + 0.5f * pulse;
-            ImGui::PushStyleColor(ImGuiCol_Button,
-                                  ImVec4(0.8f, 0.2f, 0.2f, alpha));
-        }
-
-        ImGui::BeginDisabled(simulatedSensors.empty());
-        if (ImGui::Button(was_recording ? "\uF04D Stop Rec" : "\uF111 Rec",
-                          ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) {
-            if (was_recording) {
-                StopRecording();
-            } else {
-                if (!StartRecording()) {
-                    fprintf(stderr, "ERROR: Failed to start recording\n");
-                }
-            }
-        }
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetTooltip(was_recording ? "Stop recording session"
-                                            : "Start recording sensor data");
-        }
-        ImGui::EndDisabled();
-
-        // C.41: Pop using saved state to guarantee balance
-        if (was_recording) {
-            ImGui::PopStyleColor();
-        }
-    }
-
-    ImGui::SameLine(0.0f, SPACING); // 8px spacing
-
-    // Visual feedback when paused
-    if (paused_) {
-        const ImVec4 warning_color = theme.GetWarningColor();
-        // Create a slightly lighter hover color
-        const ImVec4 warning_hover =
-            ImVec4(warning_color.x * 1.2f, warning_color.y * 1.2f,
-                   warning_color.z * 1.2f, warning_color.w);
-
-        ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_hover);
-    }
-
-    if (ImGui::Button(paused_ ? "\uF04B Play" : "\uF04C Pause",
-                      ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) { // FA play/pause
+    if (ImGui::Button(pause_text.c_str(),
+                      ImVec2(LIVE_TOGGLE_WIDTH, PRIMARY_HEIGHT))) {
         paused_ = !paused_;
-
-        // Snapshot sensor values when pausing
         if (paused_) {
+            // Snapshot current sensor values
             paused_sensor_snapshot_ = simulatedSensors;
         } else {
-            // Clear snapshot when resuming
             paused_sensor_snapshot_.clear();
         }
     }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(paused_ ? "Resume live updates"
+                                  : "Pause and freeze current values");
+    }
 
-    if (paused_) {
-        ImGui::PopStyleColor(2);
+    ImGui::SameLine(0.0f, SPACING);
+
+    // Sensor list editor button
+    if (ImGui::Button("\uF0C9 Edit Sensors",
+                      ImVec2(LIVE_EDIT_WIDTH, PRIMARY_HEIGHT))) {
+        sensor_list_modal_.Open();
     }
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip(paused_ ? "Resume live data"
-                                  : "Freeze display for inspection");
+        ImGui::SetTooltip("Edit which sensors are displayed");
     }
 
-    ImGui::SameLine(0.0f, SPACING); // 8px spacing
+    ImGui::SameLine(0.0f, SPACING);
 
-    // Visual feedback when snap was recently pressed
-    if (snap_button_feedback_) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                              ImVec4(0.3f, 0.9f, 0.3f, 1.0f));
+    // Snapshot button
+    const char *snap_icon = "\uF030"; // Camera icon
+    const bool snap_feedback = snap_button_feedback_;
+    if (snap_feedback) {
+        ImGui::PushStyleColor(ImGuiCol_Button, theme.GetSuccessColor());
     }
-
-    if (ImGui::Button("\uF0E7 Snap",
-                      ImVec2(SECONDARY_WIDTH, SECONDARY_HEIGHT))) { // FA bolt
-        // E.2: Check return value and signal errors
+    if (ImGui::Button(snap_icon, ImVec2(SECONDARY_WIDTH, SECONDARY_HEIGHT))) {
         if (TakeSnapshot()) {
             snap_button_feedback_ = true;
-            snap_feedback_time_ = 0.5; // 500ms feedback
-        } else {
-            fprintf(stderr,
-                    "ERROR: Failed to take snapshot (file I/O error)\n");
+            snap_feedback_time_ = 0.5;
         }
     }
-
-    if (snap_button_feedback_) {
-        ImGui::PopStyleColor(2);
+    if (snap_feedback) {
+        ImGui::PopStyleColor();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Save sensor snapshot to CSV");
     }
 
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, SPACING);
 
-    ImGui::SetNextItemWidth(280.0f);
+    // Recording toggle
+    const bool is_recording = RecordingManager::Instance().IsRecording();
+    if (is_recording) {
+        ImGui::PushStyleColor(ImGuiCol_Button, Colors::Status::CRITICAL);
+    }
+    const char *rec_icon = is_recording ? "\uF04D" : "\uF111";
+    const char *rec_label = is_recording ? " Stop" : " Rec";
+    std::string rec_text = std::string(rec_icon) + rec_label;
+
+    if (ImGui::Button(rec_text.c_str(),
+                      ImVec2(PRIMARY_WIDTH, PRIMARY_HEIGHT))) {
+        if (is_recording) {
+            StopRecording();
+        } else {
+            StartRecording();
+        }
+    }
+    if (is_recording) {
+        ImGui::PopStyleColor();
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(is_recording ? "Stop recording"
+                                       : "Start recording sensor data");
+    }
+
+    ImGui::SameLine(0.0f, SPACING);
+
+    // Show all / Custom toggle
+    if (ImGui::Button(show_all_sensors_ ? "\uF0C9 Custom" : "\uF0CA All",
+                      ImVec2(SECONDARY_WIDTH, SECONDARY_HEIGHT))) {
+        show_all_sensors_ = !show_all_sensors_;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip(show_all_sensors_ ? "Show only selected sensors"
+                                            : "Show all available sensors");
+    }
+
+    ImGui::SameLine(0.0f, SPACING);
+
+    // Filter input
+    ImGui::SetNextItemWidth(Layout::Input::FILTER_WIDTH);
     if (ImGui::InputText("##filter", filter_buffer_, sizeof(filter_buffer_))) {
         sensor_table_.SetFilter(filter_buffer_);
     }
@@ -393,8 +353,9 @@ void LiveScreen::RenderTopControls() {
 
 void LiveScreen::RenderSensorTable() {
     const std::vector<int> visible_indices = GetVisibleSensorIndices();
-    const float table_height = ImGui::GetContentRegionAvail().y -
-                               (HasCriticalSensors() ? 60.0f : 0.0f);
+    // Use full available height inside the child window; alert banner is
+    // rendered below
+    const float table_height = ImGui::GetContentRegionAvail().y;
 
     // Use frozen snapshot when paused, otherwise use live data
     const auto &sensor_data = paused_ && !paused_sensor_snapshot_.empty()
@@ -420,17 +381,22 @@ void LiveScreen::RenderAlertBanner() {
     ImVec4 bg_color = Colors::Status::CRITICAL;
     bg_color.w = alpha;
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, bg_color);
+    UI::StyleColorGuard colors;
+    colors.push(ImGuiCol_ChildBg, bg_color);
     ImGui::BeginChild("AlertBanner", ImVec2(0, 50.0f), true);
 
-    ImGui::PushFont(font_large);
-    ImGui::TextColored(
-        ImVec4(1, 1, 1, 1),
-        "\u26A0 ALERTA: Sensores cr\u00edticos fora da faixa!"); // ⚠
-    ImGui::PopFont();
+    {
+        FontGuard font_guard(font_large);
+        if (font_guard.IsValid()) {
+            ImGui::TextColored(ImVec4(1, 1, 1, 1),
+                               "\u26A0 ALERT: Critical sensors out of range!");
+        } else {
+            ImGui::TextColored(ImVec4(1, 1, 1, 1),
+                               "\u26A0 ALERT: Critical sensors out of range!");
+        }
+    }
 
     ImGui::EndChild();
-    ImGui::PopStyleColor();
 }
 
 std::vector<int> LiveScreen::GetVisibleSensorIndices() const {

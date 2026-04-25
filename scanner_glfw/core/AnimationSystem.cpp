@@ -89,8 +89,8 @@ ImVec4 AnimationSystem::LerpColor(const ImVec4 &a, const ImVec4 &b, float t) {
 float AnimationSystem::GetPulse(float frequency) {
     const double current_time = glfwGetTime() - start_time_;
     const float phase = static_cast<float>(current_time) * frequency * 2.0f *
-                        3.14159265f;        // 2*PI
-    return (std::sin(phase) + 1.0f) * 0.5f; // Map from [-1,1] to [0,1]
+                        std::numbers::pi_v<float>; // 2*PI
+    return (std::sin(phase) + 1.0f) * 0.5f;        // Map from [-1,1] to [0,1]
 }
 
 float AnimationSystem::SmoothDamp(float current, float target, float &velocity,

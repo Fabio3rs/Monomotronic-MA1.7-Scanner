@@ -438,13 +438,13 @@ void RenderECULoadingOverlay() {
     constexpr float kThickness = 4.0f;
     const float angle = static_cast<float>(ImGui::GetTime()) * 3.0f;
     const int num_segments = 24;
-    const float arc_length = M_PI * 0.75f;
+    const float arc_length = std::numbers::pi_v<float> * 0.75f;
 
     for (int i = 0; i < num_segments; ++i) {
-        const float a0 =
-            angle + (i / static_cast<float>(num_segments)) * M_PI * 2.0f;
-        const float a1 =
-            angle + ((i + 1) / static_cast<float>(num_segments)) * M_PI * 2.0f;
+        const float a0 = angle + (i / static_cast<float>(num_segments)) *
+                                     std::numbers::pi_v<float> * 2.0f;
+        const float a1 = angle + ((i + 1) / static_cast<float>(num_segments)) *
+                                     std::numbers::pi_v<float> * 2.0f;
         const float fade =
             std::max(0.0f, std::cos(a0 - angle - arc_length * 0.5f));
         if (fade < 0.01f)

@@ -7,15 +7,15 @@
 #include "../core/TouchGestureHandler.h"
 #include "../ui/DashboardWidget.h"
 #include "../utils/Colors.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include <algorithm>
 
-using namespace Layout::Button; // Use button constants
+using namespace Layout::Button;
 
 extern ImFont *font_large;
 
 DashWidget::DashWidget(int idx, DashWidgetType t) : sensor_idx(idx), type(t) {
-    // Create appropriate renderer based on type
     switch (type) {
     case DashWidgetType::NUMERIC:
         renderer = std::make_unique<NumericWidgetRenderer>();
@@ -40,7 +40,6 @@ void DashScreen::OnEnter() {
     SetActive(true);
     LoadWidgetsFromState();
 
-    // Auto-populate on first launch (no saved widgets)
     if (widgets_.empty()) {
         AutoPopulateDashboard();
     }
@@ -55,16 +54,14 @@ void DashScreen::OnExit() {
 }
 
 void DashScreen::Update(float delta_time) {
-    // Update fade alpha for smooth transitions
     auto &anim = AnimationSystem::Instance();
     SetFadeAlpha(anim.GetFade("dash_screen", 0.2f));
 }
 
 void DashScreen::Render() {
-    // Apply fade
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GetFadeAlpha());
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, GetFadeAlpha());
 
-    // Content area (cursor already at (0,0) within ContentArea parent)
     const float content_height = ImGui::GetContentRegionAvail().y;
 
     ImGui::BeginChild("DashScreenContent", ImVec2(0, content_height), false,
@@ -72,12 +69,10 @@ void DashScreen::Render() {
 
     RenderTopControls();
 
-    // Calculate remaining height for widget grid
     const float controls_height = ImGui::GetCursorPosY();
     const float grid_height =
         content_height - controls_height - Layout::SPACING_SMALL;
 
-    // Render widget grid
     ImGui::BeginChild("WidgetGrid", ImVec2(0, grid_height), false,
                       ImGuiWindowFlags_NoScrollbar);
     RenderWidgetGrid();
@@ -85,17 +80,13 @@ void DashScreen::Render() {
 
     ImGui::EndChild();
 
-    // Render modals
     RenderAddWidgetModal();
     RenderContextMenu();
     RenderRemoveConfirmation();
     RenderResetConfirmation();
-
-    ImGui::PopStyleVar();
 }
 
 bool DashScreen::HandleGesture(const GestureEvent &event) {
-    // Handle swipe gestures for screen navigation
     if (event.type == GestureType::SWIPE_RIGHT) {
         SetCurrentScreen(Screen::GRAPH);
         return true;
@@ -104,28 +95,20 @@ bool DashScreen::HandleGesture(const GestureEvent &event) {
         SetCurrentScreen(Screen::DTC);
         return true;
     }
-
     return false;
 }
 
 void DashScreen::RenderTopControls() {
     auto &theme = ThemeManager::Instance();
 
-    // Add Widget button
-    if (ImGui::Button("\uF067 Add Widget",
-                      ImVec2(150, PRIMARY_HEIGHT))) { // FA plus
+    if (ImGui::Button("\uF067 Add Widget", ImVec2(150, PRIMARY_HEIGHT))) {
         show_add_widget_modal_ = true;
-        // OpenPopup will be called in RenderAddWidgetModal() in the correct
-        // scope
-
-        // Reset temp selection
         temp_selected_sensor_ = -1;
         temp_selected_type_ = DashWidgetType::NUMERIC;
     }
 
     ImGui::SameLine(0.0f, Layout::Button::SPACING);
 
-    // Reset button
     if (ImGui::Button("\uF0E2 Reset", ImVec2(WIDE_WIDTH, PRIMARY_HEIGHT))) {
         show_reset_confirmation_ = true;
     }
@@ -134,8 +117,6 @@ void DashScreen::RenderTopControls() {
     }
 
     ImGui::SameLine();
-
-    // Info text
     ImGui::TextColored(theme.GetSecondaryColor(),
                        "Long-press widget for options");
 }
@@ -143,7 +124,6 @@ void DashScreen::RenderTopControls() {
 void DashScreen::RenderWidgetGrid() {
     auto &theme = ThemeManager::Instance();
 
-    // Empty state
     if (widgets_.empty()) {
         const ImVec2 content_size = ImGui::GetContentRegionAvail();
         const char *empty_msg =
@@ -158,157 +138,120 @@ void DashScreen::RenderWidgetGrid() {
         return;
     }
 
-    // ES.10: Responsive grid layout
     const float grid_width = ImGui::GetContentRegionAvail().x;
     const float grid_height = ImGui::GetContentRegionAvail().y;
 
     constexpr float grid_spacing = 12.0f;
     constexpr float min_widget_width = 240.0f;
-    constexpr float min_widget_height =
-        110.0f; // Reduced from 150px (sparkline now at 52%, not 95%)
-    constexpr float max_widget_height =
-        150.0f; // Prevent stretching beyond this
+    constexpr float min_widget_height = 110.0f;
+    constexpr float max_widget_height = 150.0f;
 
-    // Calculate responsive number of columns
-    int num_cols = 2; // Default
+    int num_cols = 2;
     if (grid_width < (min_widget_width * 2 + grid_spacing)) {
-        num_cols = 1; // Narrow screen: 1 column
+        num_cols = 1;
     } else if (grid_width >= (min_widget_width * 3 + grid_spacing * 2)) {
-        num_cols = 3; // Wide screen: 3 columns
+        num_cols = 3;
     }
 
     const float widget_width =
         (grid_width - grid_spacing * (num_cols - 1)) / num_cols;
     const int num_rows =
         (static_cast<int>(widgets_.size()) + num_cols - 1) / num_cols;
-    const float widget_height =
+
+    float widget_height =
         (grid_height - grid_spacing * (num_rows - 1)) / num_rows;
+    widget_height =
+        std::clamp(widget_height, min_widget_height, max_widget_height);
 
-    // ES.10: Apply minimum and maximum size constraints consistently for
-    // positioning
-    const float effective_width = std::max(widget_width, min_widget_width);
-    const float effective_height =
-        std::min(std::max(widget_height, min_widget_height), max_widget_height);
-    const ImVec2 widget_size(effective_width, effective_height);
-
-    auto &gesture_handler = TouchGestureHandler::Instance();
-
-    // Calculate total grid height (needed for scrolling)
-    const float total_grid_height =
-        num_rows * (effective_height + grid_spacing) - grid_spacing;
-
-    // Create scrollable container if content exceeds viewport
-    const bool needs_scroll = total_grid_height > grid_height;
-    if (needs_scroll) {
-        ImGui::BeginChild("DashScrollContainer",
-                          ImVec2(grid_width, grid_height),
-                          false,                  // No border
-                          ImGuiWindowFlags_None); // Allow vertical scroll
-    }
-
-    for (size_t i = 0; i < widgets_.size(); ++i) {
-        auto &widget = widgets_[i];
-
-        // Calculate responsive grid position using EFFECTIVE size (after min
-        // constraints)
-        const int row = static_cast<int>(i) / num_cols;
-        const int col = static_cast<int>(i) % num_cols;
-
-        const float pos_x = col * (effective_width + grid_spacing);
-        const float pos_y = row * (effective_height + grid_spacing);
-
-        ImGui::SetCursorPos(ImVec2(pos_x, pos_y));
-
-        // Widget container
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::BeginChild("WidgetContainer", widget_size, true,
-                          ImGuiWindowFlags_NoScrollbar);
-
-        // Check for valid sensor index
-        if (widget.sensor_idx >= 0 &&
-            widget.sensor_idx < static_cast<int>(simulatedSensors.size())) {
-            const auto &sensor = simulatedSensors[widget.sensor_idx];
-
-            // Render widget using appropriate renderer
-            if (widget.renderer) {
-                widget.renderer->Render(sensor, widget_size);
+    int widget_idx = 0;
+    for (int row = 0;
+         row < num_rows && widget_idx < static_cast<int>(widgets_.size());
+         ++row) {
+        for (int col = 0;
+             col < num_cols && widget_idx < static_cast<int>(widgets_.size());
+             ++col) {
+            if (col > 0) {
+                ImGui::SameLine(0, grid_spacing);
             }
 
-            // ES.10: Context menu icon (gear) - top-right corner with correct
-            // positioning
-            const ImVec2 widget_content_min =
-                ImGui::GetWindowContentRegionMin();
-            const ImVec2 widget_content_max =
-                ImGui::GetWindowContentRegionMax();
-            const ImVec2 window_pos = ImGui::GetWindowPos();
+            const float x = col * (widget_width + grid_spacing);
+            const float y = row * (widget_height + grid_spacing);
+            ImGui::SetCursorPos(ImVec2(x, y));
 
-            constexpr float gear_margin = 10.0f;
-
-            const ImVec2 gear_pos = ImVec2(
-                window_pos.x + widget_content_max.x - ICON_SIZE - gear_margin,
-                window_pos.y + widget_content_min.y + gear_margin);
-
-            ImGui::SetCursorScreenPos(gear_pos);
-            if (ImGui::Button("\uF013",
-                              ImVec2(ICON_SIZE, ICON_SIZE))) { // FA cog
-                context_menu_widget_idx_ = static_cast<int>(i);
-                show_context_menu_ = true;
-            }
+            RenderWidget(widget_idx, widget_width, widget_height);
+            ++widget_idx;
         }
-
-        ImGui::EndChild();
-
-        // Detect long-press on widget for context menu
-        if (ImGui::IsItemHovered() &&
-            gesture_handler.IsGesture(GestureType::LONG_PRESS)) {
-            context_menu_widget_idx_ = static_cast<int>(i);
-            show_context_menu_ = true;
-        }
-
-        ImGui::PopID();
-    }
-
-    // End scrollable container if it was created
-    if (needs_scroll) {
-        ImGui::EndChild();
     }
 }
 
-void DashScreen::RenderAddWidgetModal() {
-    if (!show_add_widget_modal_) {
+void DashScreen::RenderWidget(int widget_idx, float width, float height) {
+    if (widget_idx < 0 || widget_idx >= static_cast<int>(widgets_.size())) {
         return;
     }
 
-    // Call OpenPopup if modal should be shown but isn't open yet
-    // This ensures OpenPopup is called in the correct scope (outside child
-    // windows)
-    if (!add_widget_modal_.IsOpen()) {
-        add_widget_modal_.Open();
+    auto &widget = widgets_[widget_idx];
+    if (widget.sensor_idx < 0 ||
+        widget.sensor_idx >= static_cast<int>(simulatedSensors.size())) {
+        return;
     }
+
+    auto &sensor = simulatedSensors[widget.sensor_idx];
+
+    // Use a child window as the widget container; this gives us natural
+    // hit-testing, clipping, and isolates cursor movement from the renderer.
+    char child_id[32];
+    snprintf(child_id, sizeof(child_id), "##widget_%d", widget_idx);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::BeginChild(child_id, ImVec2(width, height), false,
+                      ImGuiWindowFlags_NoScrollbar);
+    {
+        if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+            ImDrawList *draw_list = ImGui::GetWindowDrawList();
+            const ImVec2 min_pos = ImGui::GetWindowPos();
+            const ImVec2 max_pos =
+                ImVec2(min_pos.x + width, min_pos.y + height);
+            draw_list->AddRect(min_pos, max_pos,
+                               ImGui::ColorConvertFloat4ToU32(
+                                   ThemeManager::Instance().GetPrimaryColor()),
+                               6.0f, 0, 2.0f);
+        }
+
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(1)) {
+            show_context_menu_ = true;
+            context_menu_widget_idx_ = widget_idx;
+        }
+
+        if (widget.renderer) {
+            widget.renderer->Render(sensor, ImVec2(width, height));
+        }
+    }
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+}
+
+void DashScreen::RenderAddWidgetModal() {
+    if (!show_add_widget_modal_)
+        return;
 
     bool confirmed = false;
     add_widget_modal_.RenderWithButtons(
         [this]() {
             auto &theme = ThemeManager::Instance();
 
-            ImGui::Text("Select sensor:");
+            ImGui::Text("Select a sensor to add:");
             ImGui::Spacing();
 
-            // Sensor selection (dropdown)
-            const char *preview =
-                temp_selected_sensor_ >= 0 &&
-                        temp_selected_sensor_ <
-                            static_cast<int>(simulatedSensors.size())
-                    ? simulatedSensors[temp_selected_sensor_].name.c_str()
-                    : "Choose a sensor...";
-
-            if (ImGui::BeginCombo("##sensor", preview)) {
-                for (size_t i = 0; i < simulatedSensors.size(); ++i) {
-                    const bool is_selected =
-                        (temp_selected_sensor_ == static_cast<int>(i));
+            if (ImGui::BeginCombo(
+                    "Sensor",
+                    temp_selected_sensor_ >= 0
+                        ? simulatedSensors[temp_selected_sensor_].name.c_str()
+                        : "Select...")) {
+                for (int i = 0; i < static_cast<int>(simulatedSensors.size());
+                     ++i) {
+                    const bool is_selected = (temp_selected_sensor_ == i);
                     if (ImGui::Selectable(simulatedSensors[i].name.c_str(),
                                           is_selected)) {
-                        temp_selected_sensor_ = static_cast<int>(i);
+                        temp_selected_sensor_ = i;
                     }
                     if (is_selected) {
                         ImGui::SetItemDefaultFocus();
@@ -318,55 +261,34 @@ void DashScreen::RenderAddWidgetModal() {
             }
 
             ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
+            ImGui::Text("Widget Type:");
 
-            ImGui::Text("Select widget type:");
-            ImGui::Spacing();
+            const char *type_names[] = {"Numeric", "Gauge", "Graph",
+                                        "Bar Graph"};
+            const DashWidgetType types[] = {
+                DashWidgetType::NUMERIC, DashWidgetType::GAUGE,
+                DashWidgetType::GRAPH, DashWidgetType::BARGRAPH};
 
-            // Widget type selection (radio buttons)
-            if (ImGui::RadioButton("Numeric", temp_selected_type_ ==
-                                                  DashWidgetType::NUMERIC)) {
-                temp_selected_type_ = DashWidgetType::NUMERIC;
+            for (int i = 0; i < 4; ++i) {
+                if (i > 0)
+                    ImGui::SameLine();
+                bool selected = (temp_selected_type_ == types[i]);
+                if (selected) {
+                    ImGui::PushStyleColor(ImGuiCol_Button,
+                                          theme.GetPrimaryColor());
+                }
+                if (ImGui::Button(type_names[i], ImVec2(100, 40))) {
+                    temp_selected_type_ = types[i];
+                }
+                if (selected) {
+                    ImGui::PopStyleColor();
+                }
             }
-            ImGui::SameLine();
-            ImGui::TextColored(theme.GetSecondaryColor(), "Value + Progress");
-
-            ImGui::Spacing();
-
-            if (ImGui::RadioButton("Gauge", temp_selected_type_ ==
-                                                DashWidgetType::GAUGE)) {
-                temp_selected_type_ = DashWidgetType::GAUGE;
-            }
-            ImGui::SameLine();
-            ImGui::TextColored(theme.GetSecondaryColor(), "Arc Dial");
-
-            ImGui::Spacing();
-
-            if (ImGui::RadioButton("Graph", temp_selected_type_ ==
-                                                DashWidgetType::GRAPH)) {
-                temp_selected_type_ = DashWidgetType::GRAPH;
-            }
-            ImGui::SameLine();
-            ImGui::TextColored(theme.GetSecondaryColor(), "Line Chart");
-
-            ImGui::Spacing();
-
-            if (ImGui::RadioButton("BarGraph", temp_selected_type_ ==
-                                                   DashWidgetType::BARGRAPH)) {
-                temp_selected_type_ = DashWidgetType::BARGRAPH;
-            }
-            ImGui::SameLine();
-            ImGui::TextColored(theme.GetSecondaryColor(), "Retro 80s/90s Bars");
         },
         &confirmed);
 
-    if (confirmed) {
-        // Validate selection
-        constexpr size_t MAX_WIDGETS = 12; // Smaller widgets allow more items
-        if (temp_selected_sensor_ >= 0 && widgets_.size() < MAX_WIDGETS) {
-            AddWidget(temp_selected_sensor_, temp_selected_type_);
-        }
+    if (confirmed && temp_selected_sensor_ >= 0) {
+        AddWidget(temp_selected_sensor_, temp_selected_type_);
         show_add_widget_modal_ = false;
     }
 
@@ -376,122 +298,75 @@ void DashScreen::RenderAddWidgetModal() {
 }
 
 void DashScreen::RenderContextMenu() {
-    if (!show_context_menu_) {
+    if (!show_context_menu_ || context_menu_widget_idx_ < 0 ||
+        context_menu_widget_idx_ >= static_cast<int>(widgets_.size())) {
         return;
     }
 
-    // Guard check: only open popup if not already open
-    if (!context_menu_popup_open_) {
-        ImGui::OpenPopup("WidgetContextMenu");
-        context_menu_popup_open_ = true;
-    }
+    ImGui::OpenPopup("WidgetContextMenu");
+    show_context_menu_ = false;
+    context_menu_popup_open_ = true;
 
     if (ImGui::BeginPopup("WidgetContextMenu")) {
-        // Detect click outside popup to close it
-        if (ImGui::IsMouseClicked(0) &&
-            !ImGui::IsWindowHovered(
-                ImGuiHoveredFlags_AllowWhenBlockedByPopup)) {
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
-        }
-
-        ImGui::Text("Widget Options");
-        ImGui::Separator();
-
-        if (ImGui::MenuItem("Change to Numeric")) {
-            ChangeWidgetType(context_menu_widget_idx_, DashWidgetType::NUMERIC);
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
-        }
-
-        if (ImGui::MenuItem("Change to Gauge")) {
-            ChangeWidgetType(context_menu_widget_idx_, DashWidgetType::GAUGE);
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
-        }
-
-        if (ImGui::MenuItem("Change to Graph")) {
-            ChangeWidgetType(context_menu_widget_idx_, DashWidgetType::GRAPH);
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
-        }
-
-        if (ImGui::MenuItem("Change to BarGraph")) {
-            ChangeWidgetType(context_menu_widget_idx_,
-                             DashWidgetType::BARGRAPH);
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
-        }
-
-        ImGui::Separator();
+        auto &widget = widgets_[context_menu_widget_idx_];
 
         if (ImGui::MenuItem("Remove Widget")) {
             pending_remove_widget_idx_ = context_menu_widget_idx_;
             show_remove_confirmation_ = true;
-            remove_confirm_modal_.Open();
-            ImGui::CloseCurrentPopup();
-            context_menu_popup_open_ = false;
-            show_context_menu_ = false;
+        }
+
+        if (ImGui::BeginMenu("Change Type")) {
+            const char *type_names[] = {"Numeric", "Gauge", "Graph",
+                                        "Bar Graph"};
+            const DashWidgetType types[] = {
+                DashWidgetType::NUMERIC, DashWidgetType::GAUGE,
+                DashWidgetType::GRAPH, DashWidgetType::BARGRAPH};
+
+            for (int i = 0; i < 4; ++i) {
+                bool selected = (widget.type == types[i]);
+                if (ImGui::MenuItem(type_names[i], nullptr, selected)) {
+                    ChangeWidgetType(context_menu_widget_idx_, types[i]);
+                }
+            }
+            ImGui::EndMenu();
         }
 
         ImGui::EndPopup();
     } else {
-        // Popup was closed by ImGui (ESC or other reason)
-        show_context_menu_ = false;
         context_menu_popup_open_ = false;
+        context_menu_widget_idx_ = -1;
     }
 }
 
 void DashScreen::RenderRemoveConfirmation() {
-    if (!show_remove_confirmation_) {
+    if (!show_remove_confirmation_)
         return;
-    }
-
-    // Call OpenPopup if modal should be shown but isn't open yet
-    // This ensures OpenPopup is called in the correct scope (outside other
-    // popups)
-    if (!remove_confirm_modal_.IsOpen()) {
-        remove_confirm_modal_.Open();
-    }
 
     bool confirmed = false;
     remove_confirm_modal_.RenderWithButtons(
         [this]() {
             auto &theme = ThemeManager::Instance();
-
+            ImGui::Text("Remove this widget?");
+            ImGui::Spacing();
             if (pending_remove_widget_idx_ >= 0 &&
                 pending_remove_widget_idx_ <
                     static_cast<int>(widgets_.size())) {
                 const auto &widget = widgets_[pending_remove_widget_idx_];
-
-                if (widget.sensor_idx >= 0 &&
-                    widget.sensor_idx <
-                        static_cast<int>(simulatedSensors.size())) {
-                    const auto &sensor = simulatedSensors[widget.sensor_idx];
-
-                    ImGui::Text("Remove widget for sensor:");
-                    ImGui::Spacing();
-                    ImGui::PushFont(font_large);
-                    ImGui::TextColored(theme.GetAccentColor(), "%s",
-                                       sensor.name.c_str());
-                    ImGui::PopFont();
-                    ImGui::Spacing();
-                    ImGui::TextColored(theme.GetSecondaryColor(),
-                                       "This action cannot be undone.");
-                }
+                const char *name =
+                    (widget.sensor_idx >= 0 &&
+                     widget.sensor_idx <
+                         static_cast<int>(simulatedSensors.size()))
+                        ? simulatedSensors[widget.sensor_idx].name.c_str()
+                        : "Unknown";
+                ImGui::TextColored(theme.GetSecondaryColor(), "%s", name);
             }
         },
         &confirmed);
 
     if (confirmed) {
         RemoveWidget(pending_remove_widget_idx_);
-        pending_remove_widget_idx_ = -1;
         show_remove_confirmation_ = false;
+        pending_remove_widget_idx_ = -1;
     }
 
     if (!remove_confirm_modal_.IsOpen()) {
@@ -501,66 +376,32 @@ void DashScreen::RenderRemoveConfirmation() {
 }
 
 void DashScreen::RenderResetConfirmation() {
-    if (!show_reset_confirmation_) {
+    if (!show_reset_confirmation_)
         return;
-    }
-
-    // Open modal if not already open
-    if (!reset_confirm_modal_.IsOpen()) {
-        reset_confirm_modal_.Open();
-    }
 
     bool confirmed = false;
     reset_confirm_modal_.RenderWithButtons(
-        [this]() {
+        []() {
             auto &theme = ThemeManager::Instance();
-
-            ImGui::Text("Reset dashboard to default layout?");
+            ImGui::Text("Reset dashboard?");
             ImGui::Spacing();
-
-            ImGui::TextColored(
-                theme.GetSecondaryColor(),
-                "This will remove all custom widgets and restore\n"
-                "the essential sensors:");
-
-            ImGui::Spacing();
-            ImGui::BulletText("Water Temperature");
-            ImGui::BulletText("RPM");
-            ImGui::BulletText("Throttle Position (TPS)");
-            ImGui::BulletText("Air Temperature");
-
-            ImGui::Spacing();
-            ImGui::TextColored(Colors::Status::WARN,
-                               "This action cannot be undone.");
+            ImGui::TextColored(theme.GetSecondaryColor(),
+                               "This will remove all widgets.");
         },
         &confirmed);
 
     if (confirmed) {
-        // CRITICAL: Clear existing widgets FIRST
         widgets_.clear();
-
-        // Then populate with defaults
-        AutoPopulateDashboard();
-
-        // Close modal
+        SaveWidgetsToState();
         show_reset_confirmation_ = false;
     }
 
-    // Cleanup if modal was closed without confirmation
     if (!reset_confirm_modal_.IsOpen()) {
         show_reset_confirmation_ = false;
     }
 }
 
 void DashScreen::AddWidget(int sensor_idx, DashWidgetType type) {
-    // Limit to 12 widgets (up to 6 rows × 2 cols with scrolling)
-    // With max_widget_height=150px, this allows comfortable viewing on 1024x600
-    // screen
-    constexpr size_t MAX_WIDGETS = 12;
-    if (widgets_.size() >= MAX_WIDGETS) {
-        return;
-    }
-
     widgets_.emplace_back(sensor_idx, type);
     SaveWidgetsToState();
     UpdateSubscriptionsFromWidgets();
@@ -570,15 +411,7 @@ void DashScreen::RemoveWidget(int widget_idx) {
     if (widget_idx < 0 || widget_idx >= static_cast<int>(widgets_.size())) {
         return;
     }
-
-    // BUG FIX #8: Use erase with iterator (safe for vector)
     widgets_.erase(widgets_.begin() + widget_idx);
-
-    // Reset pending index if needed
-    if (pending_remove_widget_idx_ == widget_idx) {
-        pending_remove_widget_idx_ = -1;
-    }
-
     SaveWidgetsToState();
     UpdateSubscriptionsFromWidgets();
 }
@@ -589,8 +422,6 @@ void DashScreen::ChangeWidgetType(int widget_idx, DashWidgetType new_type) {
     }
 
     auto &widget = widgets_[widget_idx];
-
-    // Create new renderer
     widget.type = new_type;
     switch (new_type) {
     case DashWidgetType::NUMERIC:
@@ -613,12 +444,10 @@ void DashScreen::ChangeWidgetType(int widget_idx, DashWidgetType new_type) {
 void DashScreen::AutoPopulateDashboard() {
     std::vector<int> sensor_indices_to_add;
 
-    // Try to get active sensor collection from ECU
     auto &backend = ECUBackend::Instance();
     if (backend.IsConnected()) {
         auto ecu_sensors = backend.GetActiveSensorCollection();
         if (ecu_sensors.has_value()) {
-            // Map ECU sensor IDs to simulatedSensors indices
             for (const auto &[ecu_id, ecu_subcmd] : ecu_sensors.value()) {
                 for (size_t i = 0; i < simulatedSensors.size(); ++i) {
                     if (simulatedSensors[i].id == ecu_id &&
@@ -631,7 +460,6 @@ void DashScreen::AutoPopulateDashboard() {
         }
     }
 
-    // Fallback: default collection table (10 sensors)
     if (sensor_indices_to_add.empty()) {
         constexpr std::array<std::pair<int, int>, 10> kDefaultCollection{{
             {0x63, 0x00},
@@ -657,26 +485,23 @@ void DashScreen::AutoPopulateDashboard() {
         }
     }
 
-    // Add widgets with smart type inference
     for (int sensor_idx : sensor_indices_to_add) {
         DashWidgetType widget_type = InferWidgetTypeForSensor(sensor_idx);
         AddWidget(sensor_idx, widget_type);
     }
 
-    // Persist to StateManager
     SaveWidgetsToState();
 }
 
 DashWidgetType DashScreen::InferWidgetTypeForSensor(int sensor_idx) {
     if (sensor_idx < 0 ||
         sensor_idx >= static_cast<int>(simulatedSensors.size())) {
-        return DashWidgetType::NUMERIC; // Safe default
+        return DashWidgetType::NUMERIC;
     }
 
     const auto &sensor = simulatedSensors[sensor_idx];
     const std::string &name = sensor.name;
 
-    // Gauge: Rotational/percentage values (RPM, TPS, throttle, actuators)
     if (name.find("RPM") != std::string::npos ||
         name.find("TPS") != std::string::npos ||
         name.find("Throttle") != std::string::npos ||
@@ -684,7 +509,6 @@ DashWidgetType DashScreen::InferWidgetTypeForSensor(int sensor_idx) {
         return DashWidgetType::GAUGE;
     }
 
-    // Graph: Values that benefit from trend analysis
     if (name.find("Lambda") != std::string::npos ||
         name.find("MAP") != std::string::npos ||
         name.find("Injection") != std::string::npos ||
@@ -693,7 +517,6 @@ DashWidgetType DashScreen::InferWidgetTypeForSensor(int sensor_idx) {
         return DashWidgetType::GRAPH;
     }
 
-    // Numeric: Temperature, voltage, default
     return DashWidgetType::NUMERIC;
 }
 
@@ -703,10 +526,8 @@ void DashScreen::SaveWidgetsToState() {
         return;
     }
 
-    // Convert local DashWidget to app_data.h DashboardWidget for persistence
     std::vector<::DashboardWidget> state_widgets;
     for (const auto &widget : widgets_) {
-        // Map DashWidgetType to WidgetType
         WidgetType wt;
         switch (widget.type) {
         case DashWidgetType::NUMERIC:
@@ -740,9 +561,7 @@ void DashScreen::LoadWidgetsFromState() {
     for (const auto &sw : state_widgets) {
         if (sw.sensor_idx >= 0 &&
             sw.sensor_idx < static_cast<int>(simulatedSensors.size())) {
-            // Map WidgetType to DashWidgetType
-            DashWidgetType dwt = DashWidgetType::NUMERIC; // default
-
+            DashWidgetType dwt = DashWidgetType::NUMERIC;
             if (sw.type == WidgetType::NUMERIC) {
                 dwt = DashWidgetType::NUMERIC;
             } else if (sw.type == WidgetType::GAUGE) {
@@ -752,7 +571,6 @@ void DashScreen::LoadWidgetsFromState() {
             } else if (sw.type == WidgetType::BARGRAPH) {
                 dwt = DashWidgetType::BARGRAPH;
             }
-
             widgets_.emplace_back(sw.sensor_idx, dwt);
         }
     }

@@ -6,6 +6,7 @@
 #include "../core/ThemeManager.h"
 #include "../utils/Colors.h"
 #include "../utils/FileIO.h"
+#include "../utils/ImGuiRAII.h"
 #include "../utils/Layout.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -132,10 +133,10 @@ void GraphScreen::Update(float delta_time) {
 }
 
 void GraphScreen::Render() {
-    auto &theme = ThemeManager::Instance();
 
     // Apply fade
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, GetFadeAlpha());
+    UI::StyleVarGuard style;
+    style.push(ImGuiStyleVar_Alpha, GetFadeAlpha());
 
     // Content area (cursor already at (0,0) within ContentArea parent)
     const float content_height = ImGui::GetContentRegionAvail().y;
@@ -167,8 +168,6 @@ void GraphScreen::Render() {
     if (show_error_toast_) {
         RenderErrorToast();
     }
-
-    ImGui::PopStyleVar();
 }
 
 bool GraphScreen::HandleGesture(const GestureEvent &event) {
@@ -186,7 +185,6 @@ bool GraphScreen::HandleGesture(const GestureEvent &event) {
 }
 
 void GraphScreen::RenderTopControls() {
-    auto &theme = ThemeManager::Instance();
 
     // Single row: All controls in one line
     ImGui::SetNextItemWidth(180.0f);
@@ -592,13 +590,9 @@ void GraphScreen::RenderLegend(ImDrawList *draw_list, const ImVec2 &canvas_min,
 
 void GraphScreen::RenderCursors(ImDrawList *draw_list, const ImVec2 &canvas_min,
                                 const ImVec2 &canvas_max) {
-    auto &theme = ThemeManager::Instance();
 
     const float canvas_width = canvas_max.x - canvas_min.x;
-    const float canvas_height = canvas_max.y - canvas_min.y;
     const ImVec2 mouse_pos = ImGui::GetMousePos();
-
-    // Cursor A (blue/green)
     if (cursor_a_active_) {
         const float cursor_x = canvas_min.x + cursor_a_pos_.x * canvas_width;
 
@@ -769,7 +763,7 @@ void GraphScreen::RenderSignalSelector() {
     static std::vector<bool> temp_signal_selection;
 
     signal_modal_.RenderWithButtons(
-        [this]() {
+        []() {
             ImGui::Text("Select signals to display on graph:");
             ImGui::Spacing();
 
@@ -832,12 +826,12 @@ void GraphScreen::ApplySubscriptions() {
 }
 
 void GraphScreen::RenderErrorToast() {
-    auto &theme = ThemeManager::Instance();
-    ImDrawList *draw_list = ImGui::GetWindowDrawList();
 
     const ImVec2 vp_size = ImGui::GetIO().DisplaySize;
     constexpr float toast_width = 400.0f;
     constexpr float toast_height = 100.0f;
+
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
 
     const ImVec2 toast_pos(
         (vp_size.x - toast_width) * 0.5f,
