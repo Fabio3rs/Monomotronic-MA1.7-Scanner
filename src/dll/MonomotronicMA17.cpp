@@ -3,6 +3,7 @@
 //
 
 #include "ECUMonomotronic.h"
+#include "SensorDecoders.h"
 #include <Windows.h>
 #include <atomic>
 #include <chrono>
@@ -53,31 +54,25 @@ struct ECUConstantReadBools {
 
 } constantRBool;
 
-double decodeAirTemperature(int val) {
-    double b = val;
-    return 129.949 - 1.91 * b + 0.0113 * pow(b, 2.0) - 2.6406E-05 * pow(b, 3.0);
-}
-
-double decodeWaterTemperature(int val) {
-    double b = val;
-    return 126.752 - 1.832 * b + 0.0105 * pow(b, 2.0) -
-           2.4838E-05 * pow(b, 3.0);
-}
-
 struct fundata {
     int id;
+    int subcommando;
+    uint8_t length;
     bool mustRead;
     // lastTimeRead
     double lastRawDataRead;
     double lastDataRead;
     std::function<double(int)> decoder_fun;
 
-    fundata(int i, std::function<double(int)> fun) : id(i), decoder_fun(fun) {
+    fundata(int i, int sub, std::function<double(int)> fun, uint8_t len = 1)
+        : id(i), subcommando(sub), length(len), decoder_fun(fun) {
         mustRead = false;
     }
 
     fundata() {
         id = 0;
+        subcommando = 0;
+        length = 1;
         lastRawDataRead = 0;
         lastDataRead = 0.0;
         mustRead = false;
@@ -86,9 +81,17 @@ struct fundata {
 
 std::mutex ecufunlock;
 std::mutex cgMustRead;
-std::map<std::string, fundata> ECUFunctions = {
-    {"watertemp", fundata{0x62, decodeWaterTemperature}},
-    {"airtemp", fundata{0x63, decodeAirTemperature}}};
+std::map<std::string, fundata> makeECUFunctions() {
+    std::map<std::string, fundata> map;
+    for (const auto &entry : GetSensorDecoders()) {
+        map.emplace(
+            std::string(entry.key),
+            fundata{entry.id, entry.subcommand, entry.decode, entry.length});
+    }
+    return map;
+}
+
+std::map<std::string, fundata> ECUFunctions = makeECUFunctions();
 
 struct ECUConstantReadData {
     std::mutex lck;
@@ -136,13 +139,14 @@ void commandThread(ECUMonomotronic &ECUMgr) {
                 if (reqval != -1) {
                     switch (reqval) {
                     case 0: {
-                        std::optional<std::deque<ECUmmpacket>> errorsList =
+                        std::optional<ECUResponseCollection> errorsList =
                             ECUMgr.ECUReadErrors();
                         std::stringstream sstr;
                         if (errorsList) {
                             sstr << "Read errors sent" << std::endl;
 
-                            for (ECUmmpacket &e : errorsList.value()) {
+                            for (const ECUmmpacket &e :
+                                 errorsList->get_packets()) {
                                 sstr << "ECU frame nº " << std::dec
                                      << (int)e.counter << std::endl;
                                 sstr << "ECU frame type " << std::hex
@@ -194,25 +198,36 @@ void commandThread(ECUMonomotronic &ECUMgr) {
                     } break;
 
                     case 2: {
-                        for (auto &dt : ECUFunctions) {
+                        for (auto &dt_pair : ECUFunctions) {
+                            auto &dt = dt_pair.second;
                             bool mustRead = false;
                             {
                                 std::lock_guard<std::mutex> lck(cgMustRead);
-                                mustRead = dt.second.mustRead;
+                                mustRead = dt.mustRead;
                             }
 
                             if (mustRead) {
-                                // std::lock_guard<std::mutex> lck(ecufunlock);
-
-                                if (std::optional<std::deque<ECUmmpacket>>
-                                        sensorData =
-                                            ECUMgr.ECUReadSensor(0x63)) {
-                                    for (ECUmmpacket &e : sensorData.value()) {
-                                        if (e.frametypeid != 9) {
-                                            for (auto &b : e.data) {
-                                                dt.second.lastRawDataRead = b;
-                                                dt.second.lastDataRead =
-                                                    dt.second.decoder_fun(b);
+                                if (std::optional<ECUResponseCollection>
+                                        sensorData = ECUMgr.readECUMemory(
+                                            static_cast<uint8_t>(
+                                                dt.subcommando),
+                                            static_cast<uint8_t>(dt.id),
+                                            dt.length)) {
+                                    for (const ECUmmpacket &e :
+                                         sensorData->get_packets()) {
+                                        if (e.frametypeid != 9) { // Not an ACK
+                                            if (e.data.size() >= dt.length &&
+                                                !e.data.empty()) {
+                                                int raw = 0;
+                                                if (dt.length == 2) {
+                                                    raw = (e.data[0] << 8) |
+                                                          e.data[1];
+                                                } else {
+                                                    raw = e.data[0];
+                                                }
+                                                dt.lastRawDataRead = raw;
+                                                dt.lastDataRead =
+                                                    dt.decoder_fun(raw);
                                             }
                                         }
                                     }

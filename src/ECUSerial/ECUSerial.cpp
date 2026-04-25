@@ -2,18 +2,63 @@
 // FIAT TIPO 1.6ie BOSCH MONOMOTRONIC MA1.7
 
 #include "ECUMonomotronic.h"
+#include "SensorDecoders.h"
 #include "SerialPort.h"
-#include "stdafx.h"
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <exception>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
+
+struct fundata {
+    int id;
+    int subcommando;
+    uint8_t length;
+    bool mustRead;
+    // lastTimeRead
+    double lastRawDataRead;
+    double lastDataRead;
+    std::function<double(int)> decoder_fun;
+
+    fundata(int i, int sub, std::function<double(int)> fun, uint8_t len = 1)
+        : id(i), subcommando(sub), length(len), decoder_fun(fun) {
+        mustRead = false;
+    }
+
+    fundata() {
+        id = 0;
+        subcommando = 0;
+        length = 1;
+        lastRawDataRead = 0;
+        lastDataRead = 0.0;
+        mustRead = false;
+    }
+};
+
+std::unordered_map<std::string, fundata> makeECUFunctions() {
+    std::unordered_map<std::string, fundata> map;
+    auto decoders = GetSensorDecoders();
+    map.reserve(decoders.size());
+
+    for (const auto &entry : decoders) {
+        map.emplace(
+            std::string(entry.key),
+            fundata{entry.id, entry.subcommand, entry.decode, entry.length});
+    }
+
+    return map;
+}
+
+std::mutex ecuFunctionLock;
+std::mutex cgMustRead;
+std::unordered_map<std::string, fundata> ECUFunctions = makeECUFunctions();
 
 std::atomic<bool> continueECUActions = true;
 
@@ -29,10 +74,12 @@ void commandThread(ECUMonomotronic &ECUMgr) {
 
                     std::cout << "ECU Init identify packets:" << std::endl;
                     auto initPackets = ECUMgr.getinitPackets();
-                    for (int i = 0; i < initPackets.size(); i++) {
+                    // CppCoreGuidelines: Use size_t for span indexing
+                    for (size_t i = 0; i < initPackets.size(); i++) {
                         if (initPackets[i].frametypeid == 0xF6) {
-                            std::string str(initPackets[i].data.begin(),
-                                            initPackets[i].data.end());
+                            // NASA P10: Use span to access valid data only
+                            auto data_span = initPackets[i].get_data();
+                            std::string str(data_span.begin(), data_span.end());
 
                             std::cout << str << std::endl;
                         }
@@ -74,19 +121,23 @@ Wed Dec 31 22:34:45 1969 498709 READ: 4
                 */
 
                 if (!readedErrors) {
-                    std::optional<std::deque<ECUmmpacket>> errorsList =
+                    std::optional<ECUResponseCollection> errorsList =
                         ECUMgr.ECUReadErrors();
                     if (errorsList) {
                         std::cout << "Read errors sent" << std::endl;
 
-                        for (ECUmmpacket &e : errorsList.value()) {
+                        for (const ECUmmpacket &e :
+                             errorsList.value().get_packets()) {
                             std::cout << "ECU frame nº " << std::dec
                                       << (int)e.counter << std::endl;
                             std::cout << "ECU frame type " << std::hex
                                       << (int)e.frametypeid << std::endl;
+                            std::cout << "ECU frame data size "
+                                      << e.get_data().size() << std::endl;
                             std::cout << "ECU frame data ";
 
-                            for (auto &b : e.data) {
+                            // NASA P10: Use span to iterate only valid data
+                            for (auto &b : e.get_data()) {
                                 std::cout << std::hex << (int)b << " ";
                             }
 
@@ -108,9 +159,17 @@ Wed Dec 31 22:34:45 1969 498709 READ: 4
                     }
                 }
 
-                if (std::optional<std::deque<ECUmmpacket>> sensorData =
-                        ECUMgr.ECUReadSensor(0x63)) {
-                    for (ECUmmpacket &e : sensorData.value()) {
+                /*if (readedErrors) {
+                    std::cout << "Read errors already sent" << std::endl;
+                    ECUMgr.ECUCleanErrors();
+                    ECUMgr.stop();
+                    return;
+                }*/
+
+                if (std::optional<ECUResponseCollection> sensorData =
+                        ECUMgr.readECUMemory(0x00, 0x63, 1)) {
+                    for (const ECUmmpacket &e :
+                         sensorData.value().get_packets()) {
                         if (e.frametypeid != 9) {
                             std::cout << "ECU frame nº " << std::dec
                                       << (int)e.counter << std::endl;
@@ -118,7 +177,8 @@ Wed Dec 31 22:34:45 1969 498709 READ: 4
                                       << (int)e.frametypeid << std::endl;
                             std::cout << "ECU frame data ";
 
-                            for (auto &b : e.data) {
+                            // NASA P10: Use span to iterate only valid data
+                            for (auto &b : e.get_data()) {
                                 double result = 129.949770448 -
                                                 1.910061145 * b +
                                                 0.011346132 * b * b -
@@ -142,42 +202,92 @@ Wed Dec 31 22:34:45 1969 498709 READ: 4
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
+                if (std::optional<ECUResponseCollection> sensorData =
+                        ECUMgr.readECUMemory(0, 0xB3, 1)) {
+                    for (const ECUmmpacket &e :
+                         sensorData.value().get_packets()) {
+                        if (e.frametypeid != 9) {
+                            std::cout << "ECU frame nº " << std::dec
+                                      << (int)e.counter << std::endl;
+                            std::cout << "ECU frame type " << std::hex
+                                      << (int)e.frametypeid << std::endl;
+                            std::cout << "ECU frame data ";
+
+                            for (const auto &byted : e.get_data()) {
+                                std::cout << std::hex << (int)byted << " ";
+                            }
+
+                            std::cout << std::endl;
+                        }
+                        std::cout << std::endl;
+                        std::cout << std::endl;
+                    }
+                }
+
                 while (true) {
-                    if (std::optional<std::deque<ECUmmpacket>> sensorData =
-                            ECUMgr.ECUReadSensor(0x62)) {
-                        for (ECUmmpacket &e : sensorData.value()) {
-                            if (e.frametypeid != 9) {
-                                std::cout << "ECU frame nº " << std::dec
-                                          << (int)e.counter << std::endl;
-                                std::cout
-                                    << "ECU frame type " << std::hex
-                                    << (int)e.frametypeid << " "
-                                    << ECUMgr.getFrameTypeNameStr(e.frametypeid)
-                                    << std::endl;
-                                std::cout << "ECU frame data ";
+                    /*for (const auto &[name, func] : ECUFunctions) {
+                        if (std::optional<ECUResponseCollection> sensorData =
+                                ECUMgr.readECUMemory(
+                                    static_cast<uint8_t>(func.subcommando),
+                                    static_cast<uint8_t>(func.id),
+                                    func.length)) {
+                            for (const ECUmmpacket &e :
+                                 sensorData.value().get_packets()) {
+                                if (e.frametypeid != 9) {
+                                    std::cout << "ECU frame nº " << std::dec
+                                              << (int)e.counter << std::endl;
+                                    std::cout << "ECU frame type " << std::hex
+                                              << (int)e.frametypeid << " "
+                                              << name << std::endl;
+                                    std::cout << "ECU frame data ";
 
-                                for (auto &b : e.data) {
-                                    double result2 = 126.752196049 -
-                                                     1.832473888 * b +
-                                                     0.010511937 * b * b -
-                                                     2.4838E-05 * b * b * b;
-                                    std::cout << std::hex << (int)b << " "
+                                    int data = 0;
+
+                                    // NASA P10: Use span for consistent access
+                                    auto data_span = e.get_data();
+                                    if (data_span.size() >= func.length &&
+                                        !data_span.empty()) {
+                                        if (func.length == 2) {
+                                            data = (data_span[0] << 8) |
+                                                   data_span[1];
+                                        } else {
+                                            data = data_span[0];
+                                        }
+                                    }
+                                    double result2 = func.decoder_fun(data);
+                                    std::cout << std::hex << (int)data << " "
                                               << result2 << " ";
+
+                                    std::cout << std::endl;
                                 }
-
                                 std::cout << std::endl;
-
                                 std::cout << std::endl;
                             }
                         }
-                    } else {
-                        std::cout << "Read sensor data error" << std::endl;
-                        std::this_thread::sleep_for(
-                            std::chrono::milliseconds(100));
+                    }*/
 
-                        continueECUActions = false;
-                        break;
+                    if (auto sensorColl = ECUMgr.requestSensorCollection()) {
+                        for (const ECUmmpacket &e :
+                             sensorColl.value().get_packets()) {
+                            if (e.frametypeid != 9) {
+                                std::cout << "ECU frame nº " << std::dec
+                                          << (int)e.counter << std::endl;
+                                std::cout << "ECU frame type " << std::hex
+                                          << (int)e.frametypeid << " "
+                                          << std::endl;
+                                std::cout << "ECU frame data ";
+
+                                for (const auto &byted : e.get_data()) {
+                                    std::cout << std::hex << (int)byted << " ";
+                                }
+
+                                std::cout << std::endl;
+                            }
+                            std::cout << std::endl;
+                            std::cout << std::endl;
+                        }
                     }
+
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 }
 
@@ -216,9 +326,25 @@ Wed Dec 31 22:34:45 1969 498709 READ: 4
     }
 }
 
-int main() {
-    std::cout << "ECUMonomotronic ECUMgr connect to COM1" << std::endl;
-    ECUMonomotronic ECUMgr("\\\\.\\COM1");
+int ctrlc_handler(int sig) {
+    std::cout << "Caught signal " << sig << ", stopping ECU actions...\n";
+    continueECUActions = false;
+
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    const char *port = "/dev/ttyUSB0";
+
+    if (argc > 1) {
+        port = argv[1];
+        std::cout << "Using port: " << port << std::endl;
+    } else {
+        std::cout << "No port specified, using /dev/ttyUSB0" << std::endl;
+    }
+
+    std::cout << "ECUMonomotronic ECUMgr connect to " << port << std::endl;
+    ECUMonomotronic ECUMgr(port);
 
     /*while (true)
     {
@@ -245,6 +371,8 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2500));
     std::thread th(commandThread, std::ref(ECUMgr));
 
+    ECUMgr.shouldTryAutoConnect(true);
+
     while (ECUMgr.isThreadRunning()) {
         std::string command;
 
@@ -258,8 +386,8 @@ int main() {
             ECUMgr.stop();
         } else if (command == "forcestop") {
             continueECUActions = false;
-            break;
             ECUMgr.forcestop();
+            break;
         }
 
         // printlogging();
