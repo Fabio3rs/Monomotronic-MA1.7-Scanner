@@ -534,13 +534,13 @@ int main(int, char **) {
         0,
     };
 
+    constexpr const char *font_path =
+        PROJECT_DIR "/scanner_glfw/assets/fonts/RobotoMonoNerdFont-Regular.ttf";
     font_large = io.Fonts->AddFontFromFileTTF(
-        PROJECT_DIR "/imgui/misc/fonts/"
-                    "RobotoMonoNerdFont-Regular.ttf",
+        font_path,
         28.0f, &font_config, glyph_ranges);
     font_huge = io.Fonts->AddFontFromFileTTF(
-        PROJECT_DIR "/imgui/misc/fonts/"
-                    "RobotoMonoNerdFont-Regular.ttf",
+        font_path,
         60.0f, &font_config,
         glyph_ranges); // Use Nerd Font for consistency and icon support
     IM_ASSERT(font_large != nullptr && font_huge != nullptr);
@@ -625,7 +625,6 @@ int main(int, char **) {
         const ImGuiViewport *viewport = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
-        ImGui::SetNextWindowViewport(viewport->ID);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -633,7 +632,7 @@ int main(int, char **) {
         ImGuiWindowFlags window_flags =
             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoDocking;
+            ImGuiWindowFlags_NoBringToFrontOnFocus;
         ImGui::Begin("MainApp", nullptr, window_flags);
 
         const float top_bar_height = 30.0f;

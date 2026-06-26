@@ -173,7 +173,7 @@ void ThemeManager::ApplyThemeToImGui() {
     style.Colors[ImGuiCol_DragDropTarget] = primary_color;
 
     // Navigation highlight
-    style.Colors[ImGuiCol_NavHighlight] = primary_color;
+    style.Colors[ImGuiCol_NavCursor] = primary_color;
     style.Colors[ImGuiCol_NavWindowingHighlight] =
         ImVec4(1.0f, 1.0f, 1.0f, 0.7f);
     style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.8f, 0.8f, 0.8f, 0.2f);
