@@ -5,3 +5,6 @@
 	path = scanner_glfw/glfw
 	url = https://github.com/glfw/glfw.git
 
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/ocornut/imgui
