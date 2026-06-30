@@ -1,5 +1,5 @@
 /*
-Implementation of std::optional by Fabio3rs to use in ESP32
+Local optional implementation for Arduino/ESP32 builds.
 
 MIT License
 
@@ -23,44 +23,48 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#ifndef ESP32_OPTIONAL
-#define ESP32_OPTIONAL
+#ifndef ESP32_OPTIONAL_H
+#define ESP32_OPTIONAL_H
 
-namespace std {
-class nullopt_t {
-    bool a;
+#include <utility>
 
-  public:
-};
+class nulloptional {};
+
+static const nulloptional nullopt{};
 
 template <class T> class optional {
-    T val;
-    bool hasv;
+    T val_{};
+    bool hasv_{false};
 
   public:
-    T &value() const { return val; };
-    bool has_value() const { return hasv; };
-
-    operator bool() const { return hasv; }
+    optional() = default;
+    optional(const nulloptional &) : hasv_(false) {}
+    optional(const T &v) : val_(v), hasv_(true) {}
+    optional(T &&v) : val_(std::move(v)), hasv_(true) {}
+    optional(const optional &) = default;
+    optional(optional &&) = default;
+    optional &operator=(const optional &) = default;
+    optional &operator=(optional &&) = default;
 
     optional &operator=(const T &v) {
-        val = v;
-        hasv = true;
-
+        val_ = v;
+        hasv_ = true;
         return *this;
     }
 
-    optional &operator=(const T &&v) {
-        val = std::move(v);
-        hasv = true;
-
+    optional &operator=(T &&v) {
+        val_ = std::move(v);
+        hasv_ = true;
         return *this;
     }
 
-    optional(T &&v) : hasv(true), val(std::move(v)) {}
-    optional(const T &v) : hasv(true), val(v) {}
-    optional() : hasv(false) {}
+    bool has_value() const { return hasv_; }
+    explicit operator bool() const { return hasv_; }
+
+    T &value() { return val_; }
+    const T &value() const { return val_; }
+
+    void reset() { hasv_ = false; }
 };
-} // namespace std
 
 #endif

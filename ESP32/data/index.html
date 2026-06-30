@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MA1.7 ESP32 Scanner</title>
+  <style>
+    :root {
+      --bg: #f1efe7;
+      --panel: #fffaf0;
+      --panel-2: #f8f3e3;
+      --ink: #1f2a30;
+      --muted: #6e756f;
+      --line: #d8cfbb;
+      --ok: #2f7d4f;
+      --warn: #a36f12;
+      --err: #aa3d2d;
+      --accent: #0f6c7c;
+      --accent-2: #d9efe8;
+      --shadow: 0 12px 30px rgba(40, 47, 40, 0.08);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top right, rgba(15, 108, 124, 0.08), transparent 26%),
+        linear-gradient(180deg, #f6f2e8 0%, var(--bg) 100%);
+      color: var(--ink);
+    }
+
+    .shell {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 20px 14px 32px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
+      color: #f7f6f1;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .hero-top, .toolbar, .actions, .status-grid, .tabs, .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .hero-top { justify-content: space-between; }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      color: rgba(247, 246, 241, 0.8);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    .pill, button, select, input {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font: inherit;
+    }
+
+    .pill {
+      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 0.88rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card.alt { background: var(--panel-2); }
+
+    .card h2, .card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .status-grid {
+      align-items: stretch;
+    }
+
+    .metric {
+      flex: 1 1 150px;
+      min-width: 140px;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .err { color: var(--err); }
+
+    .tabs { margin-bottom: 12px; }
+
+    .tab {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: var(--accent-2);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    button {
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    button.warn {
+      background: var(--warn);
+      color: #fff;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .message {
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .message.err {
+      background: #fff0ed;
+      border-color: #efc0b6;
+      color: var(--err);
+    }
+
+    .message.ok {
+      background: #edf8f1;
+      border-color: #bfdac8;
+      color: var(--ok);
+    }
+
+    .list, .table {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-item, .table-row {
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .mono {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      word-break: break-word;
+    }
+
+    .section-hidden { display: none; }
+
+    .toolbar {
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .toolbar .row {
+      flex: 1 1 auto;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      min-width: 90px;
+    }
+
+    .field label {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    select, input {
+      width: 100%;
+      padding: 9px 12px;
+      background: #fff;
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .table-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="title">MA1.7 ESP32 Scanner</div>
+          <div class="subtitle">Single-request browser client with protocol-state gating.</div>
+        </div>
+        <div class="toolbar">
+          <span id="liveBadge" class="pill">No live data yet</span>
+          <span id="cacheBadge" class="pill">Cache empty</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <main class="stack">
+        <section class="card alt">
+          <div class="toolbar">
+            <div class="row">
+              <button id="connectBtn">Connect ECU</button>
+              <button id="refreshBtn" class="secondary">Refresh now</button>
+              <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
+            </div>
+            <div class="row small">
+              <span id="pollInfo">Polling status only</span>
+            </div>
+          </div>
+          <div id="messageBox" class="message">Waiting for first status poll.</div>
+        </section>
+
+        <section class="card">
+          <h2>Session Status</h2>
+          <div id="statusGrid" class="status-grid"></div>
+        </section>
+
+        <section class="card">
+          <div class="tabs">
+            <button class="tab active" data-tab="live">Live</button>
+            <button class="tab" data-tab="dtc">DTC</button>
+            <button class="tab" data-tab="health">Health</button>
+            <button class="tab" data-tab="technical">Technical</button>
+          </div>
+
+          <div id="tab-live" class="stack">
+            <div class="row">
+              <div class="field">
+                <label for="tableSelect">Collection table</label>
+                <select id="tableSelect">
+                  <option value="0">Auto</option>
+                  <option value="1">Table 1</option>
+                  <option value="2">Table 2</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="loadSensorsBtn">Read live sensors</button>
+              </div>
+            </div>
+            <div id="initStrings" class="list"></div>
+            <div id="sensorList" class="table"></div>
+          </div>
+
+          <div id="tab-dtc" class="stack section-hidden">
+            <div class="actions">
+              <button id="readErrorsBtn">Read DTC</button>
+              <button id="clearErrorsBtn" class="warn">Clear DTC</button>
+            </div>
+            <div id="errorList" class="list"></div>
+          </div>
+
+          <div id="tab-health" class="stack section-hidden">
+            <button id="loadHealthBtn" class="secondary">Refresh health</button>
+            <div id="healthList" class="list"></div>
+          </div>
+
+          <div id="tab-technical" class="stack section-hidden">
+            <div class="small">Technical tools stay outside the normal driving workflow.</div>
+            <div class="row">
+              <div class="field">
+                <label for="memHi">Addr HI</label>
+                <input id="memHi" value="0x00">
+              </div>
+              <div class="field">
+                <label for="memLo">Addr LO</label>
+                <input id="memLo" value="0x63">
+              </div>
+              <div class="field">
+                <label for="memLen">Length</label>
+                <input id="memLen" value="0x01">
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="readMemoryBtn" class="secondary">Read memory</button>
+              </div>
+            </div>
+            <button id="loadCatalogBtn" class="secondary">Load sensor catalog</button>
+            <div id="technicalList" class="list"></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="stack">
+        <section class="card">
+          <h3>Current Protocol State</h3>
+          <div id="stateSummary" class="message">Status unavailable.</div>
+          <div class="footer-note">The browser never sends a second ECU request while another one is active.</div>
+        </section>
+
+        <section class="card">
+          <h3>Cached Snapshot</h3>
+          <div id="cacheSummary" class="message">Nothing stored yet.</div>
+          <div class="footer-note">Local cache is only for UX and history. The ESP32 remains the source of truth.</div>
+        </section>
+      </aside>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
