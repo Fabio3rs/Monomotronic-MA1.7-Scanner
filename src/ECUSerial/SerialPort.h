@@ -13,10 +13,12 @@ class SerialPort {
   private:
     int fd;
     bool connected{false}, ispty{false}, is_usb{false};
+    uint32_t configured_baud_rate{0};
     struct termios tty;
 
   public:
-    SerialPort(const std::string &portName, speed_t baudRate = B4800) noexcept;
+    SerialPort(const std::string &portName,
+               uint32_t baudRate = 4800) noexcept;
     ~SerialPort();
 
     int available() const;
@@ -44,6 +46,7 @@ class SerialPort {
 
     bool isPty() const noexcept { return ispty; }
     bool isUSBDevice() const noexcept { return is_usb; }
+    uint32_t configuredBaudRate() const noexcept { return configured_baud_rate; }
 };
 
 #endif // SERIALPORT_H

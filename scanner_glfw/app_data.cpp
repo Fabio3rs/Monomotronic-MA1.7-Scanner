@@ -340,12 +340,34 @@ void generateSimulatedSamples() {
 }
 
 namespace {
-std::string DetectECUPort() {
-    const char *env = std::getenv("ECU_PORT");
-    if (env && *env) {
-        return std::string(env);
+ECULinkConfig DetectECULinkConfig() {
+    ECULinkConfig config =
+        MakeKnownProfileConfig(ECUKnownProfile::FiatTipo16Ie);
+
+    if (const char *profile_env = std::getenv("ECU_PROFILE");
+        profile_env != nullptr && *profile_env != '\0') {
+        if (const auto profile = ParseKnownProfile(profile_env);
+            profile.has_value()) {
+            config = MakeKnownProfileConfig(profile.value());
+        }
     }
-    return "/dev/ttyUSB0";
+
+    if (const char *port_env = std::getenv("ECU_PORT");
+        port_env != nullptr && *port_env != '\0') {
+        config.port = port_env;
+    }
+
+    if (const char *baud_env = std::getenv("ECU_BAUD");
+        baud_env != nullptr && *baud_env != '\0') {
+        if (const auto baud = ParseECUBaudRate(baud_env); baud.has_value()) {
+            config.session_baud = baud.value();
+        } else if (on_connection_error) {
+            on_connection_error(std::string("Unsupported ECU_BAUD: ") +
+                                baud_env);
+        }
+    }
+
+    return config;
 }
 } // namespace
 
@@ -360,7 +382,7 @@ void UpdateLiveData() {
     bool timestamp_from_backend = false;
 
     if (!backend_started) {
-        backend_started = backend.Start(DetectECUPort(), &simulatedSensors);
+        backend_started = backend.Start(DetectECULinkConfig(), &simulatedSensors);
     }
 
     if (backend_started) {

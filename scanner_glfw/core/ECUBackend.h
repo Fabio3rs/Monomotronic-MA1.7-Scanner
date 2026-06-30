@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "../app_data.h"
+#include "ECULinkConfig.h"
 #include "ECUMonomotronic.h"
 
 // Lightweight wrapper around ECUMonomotronic that polls sensors and exposes
@@ -32,7 +33,7 @@ class ECUBackend {
 
     static ECUBackend &Instance();
 
-    bool Start(const std::string &port, std::vector<SensorState> *sensors);
+    bool Start(const ECULinkConfig &config, std::vector<SensorState> *sensors);
     void Stop();
 
     // Copy latest polled samples into the UI-owned SensorState vector.
@@ -139,7 +140,7 @@ class ECUBackend {
     std::mutex sample_mutex_;
     std::vector<SensorSample> pending_samples_;
     std::chrono::steady_clock::time_point start_time_;
-    std::string port_;
+    ECULinkConfig link_config_;
     std::optional<ECUInfo> ecu_info_;
     std::atomic<double> last_sample_timestamp_sec_;
     std::atomic<bool> paused_;

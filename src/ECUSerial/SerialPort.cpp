@@ -8,8 +8,28 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
-    : fd(-1), connected(false) {
+namespace {
+std::optional<speed_t> MapBaudRateToSpeedT(uint32_t baudRate) noexcept {
+    switch (baudRate) {
+    case 4800:
+        return B4800;
+    case 9600:
+        return B9600;
+    default:
+        return std::nullopt;
+    }
+}
+} // namespace
+
+SerialPort::SerialPort(const std::string &portName, uint32_t baudRate) noexcept
+    : fd(-1), connected(false), configured_baud_rate(baudRate) {
+    const std::optional<speed_t> speed = MapBaudRateToSpeedT(baudRate);
+    if (!speed.has_value()) {
+        std::cerr << "Unsupported baud rate: " << baudRate
+                  << " (supported: 4800, 9600)" << std::endl;
+        return;
+    }
+
     // Removed O_SYNC - doesn't help USB timing (only for file I/O persistence)
     fd = open(portName.c_str(), O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -41,8 +61,8 @@ SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
     cfmakeraw(&tty);
 
     // Set baud rate
-    cfsetispeed(&tty, baudRate);
-    cfsetospeed(&tty, baudRate);
+    cfsetispeed(&tty, speed.value());
+    cfsetospeed(&tty, speed.value());
 
     // Configure serial parameters
     tty.c_cflag |= (CLOCAL | CREAD);   // Enable receiver, ignore modem control

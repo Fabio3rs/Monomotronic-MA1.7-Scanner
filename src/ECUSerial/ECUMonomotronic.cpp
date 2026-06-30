@@ -599,6 +599,17 @@ void sendInit(SerialPort &sp, int timeoutms, std::array<bool, n> v) {
     }
 }
 
+namespace {
+std::array<bool, 8> buildFiveBaudDataBits(uint8_t address) {
+    std::array<bool, 8> bits{};
+    for (size_t i = 0; i < bits.size(); ++i) {
+        // break asserted = logical 0, break cleared = logical 1
+        bits[i] = (address & (1u << i)) == 0;
+    }
+    return bits;
+}
+} // namespace
+
 void ECUMonomotronic::ECUOpenThread() {
     if (!ECUThreadRunning) {
         ECUThreadExit = false;
@@ -627,10 +638,16 @@ void ECUMonomotronic::ECUOpenThread() {
 }
 
 void ECUMonomotronic::sendInitSequence() {
-    // [INIT] Bits: [0, 0, 0, 0, 0, 1, 0, 0, 0, 1]
+    if (link_config_.init_mode != ECUInitMode::FiveBaudBreak) {
+        std::cerr << "Unsupported init mode for MA1.7" << std::endl;
+        return;
+    }
+
+    const auto init_bits = buildFiveBaudDataBits(link_config_.init_address);
+
     sp.scBreak(true);
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    sendInit<8>(sp, 200, std::array<bool, 8>{1, 1, 1, 1, 0, 1, 1, 1}); // 0x10
+    sendInit<8>(sp, 200, init_bits);
     sp.scBreak(false);
 }
 
@@ -1417,9 +1434,9 @@ void ECUMonomotronic::debugTofile() {
 
 void ECUMonomotronic::purgeSerial() {}
 
-ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept
-    : sp(port) {
-    enableLog = enableLogging;
+ECUMonomotronic::ECUMonomotronic(const ECULinkConfig &config) noexcept
+    : link_config_(config), sp(config.port, ToUint(config.session_baud)) {
+    enableLog = config.enable_logging;
     ECUThreadExit = false;
     ECUThreadRunning = false;
     ECUInited = false;
@@ -1442,6 +1459,12 @@ ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept
     steady_start_time = std::chrono::steady_clock::now();
     system_start_time = std::chrono::system_clock::now();
 }
+
+ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept
+    : ECUMonomotronic(MakeKnownProfileConfig(ECUKnownProfile::FiatTipo16Ie,
+                                             port != nullptr ? port
+                                                             : "/dev/ttyUSB0",
+                                             enableLogging)) {}
 
 ECUMonomotronic::~ECUMonomotronic() {
     if (ECUThreadRunning) {

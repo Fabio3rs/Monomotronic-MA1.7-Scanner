@@ -71,9 +71,11 @@ add_executable(example_glfw_vulkan
 
 target_link_libraries(example_glfw_vulkan ${LIBRARIES})
 
-# Tests (RecordingManager only to avoid multiple gtest mains)
-enable_testing()
-add_executable(glfw_tests ${test_sources})
-target_include_directories(glfw_tests PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends ..)
-target_link_libraries(glfw_tests PRIVATE gtest gtest_main Threads::Threads)
-add_test(NAME glfw_tests COMMAND glfw_tests)
+if(BUILD_TESTS)
+  find_package(GTest REQUIRED)
+  enable_testing()
+  add_executable(glfw_tests ${test_sources})
+  target_include_directories(glfw_tests PRIVATE ${IMGUI_DIR} ${IMGUI_DIR}/backends ..)
+  target_link_libraries(glfw_tests PRIVATE GTest::gtest GTest::gtest_main Threads::Threads)
+  add_test(NAME glfw_tests COMMAND glfw_tests)
+endif()
