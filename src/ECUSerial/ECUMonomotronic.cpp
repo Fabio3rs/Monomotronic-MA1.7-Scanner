@@ -1435,7 +1435,7 @@ void ECUMonomotronic::debugTofile() {
 void ECUMonomotronic::purgeSerial() {}
 
 ECUMonomotronic::ECUMonomotronic(const ECULinkConfig &config) noexcept
-    : link_config_(config), sp(config.port, ToUint(config.session_baud)) {
+    : link_config_(config), sp(config.port, config.session_baud) {
     enableLog = config.enable_logging;
     ECUThreadExit = false;
     ECUThreadRunning = false;
@@ -1461,10 +1461,9 @@ ECUMonomotronic::ECUMonomotronic(const ECULinkConfig &config) noexcept
 }
 
 ECUMonomotronic::ECUMonomotronic(const char *port, bool enableLogging) noexcept
-    : ECUMonomotronic(MakeKnownProfileConfig(ECUKnownProfile::FiatTipo16Ie,
-                                             port != nullptr ? port
-                                                             : "/dev/ttyUSB0",
-                                             enableLogging)) {}
+    : ECUMonomotronic(MakeKnownProfileConfig(
+          ECUKnownProfile::FiatTipo16Ie,
+          port != nullptr ? port : "/dev/ttyUSB0", enableLogging)) {}
 
 ECUMonomotronic::~ECUMonomotronic() {
     if (ECUThreadRunning) {

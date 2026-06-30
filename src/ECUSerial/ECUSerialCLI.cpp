@@ -6,8 +6,16 @@ std::string GetECUSerialUsage() {
     return "Usage:\n"
            "  ecuserial [port]\n"
            "  ecuserial [port] [baud]\n"
-           "  ecuserial --port <path> [--baud <4800|9600>] [--profile "
-           "<tipo-1.6ie|clio-1.6-1999>]\n";
+           "  ecuserial --port <path> [--profile <name>] [--baud <rate>]\n"
+           "\n"
+           "Profiles:\n"
+           "  fiat-tipo-1.6ie      default baud 4800\n"
+           "  renault-clio-1.6-1999 default baud 9600\n"
+           "\n"
+           "Behavior:\n"
+           "  --profile selects protocol defaults for the target ECU.\n"
+           "  --baud overrides the profile baud when both are provided.\n"
+           "  Positional mode remains compatible: [port] [baud].\n";
 }
 
 ECUSerialCLIParseResult
@@ -17,7 +25,7 @@ ParseECUSerialCLIArgs(std::span<const std::string_view> args) noexcept {
     result.config = MakeKnownProfileConfig(ECUKnownProfile::FiatTipo16Ie);
 
     bool positional_port_consumed = false;
-    std::optional<ECUBaudRate> explicit_baud;
+    std::optional<uint32_t> explicit_baud;
 
     for (size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
@@ -49,14 +57,14 @@ ParseECUSerialCLIArgs(std::span<const std::string_view> args) noexcept {
             const auto baud = ParseECUBaudRate(args[++i]);
             if (!baud.has_value()) {
                 result.status = ECUSerialCLIParseStatus::Error;
-                result.message = "Unsupported baud rate: " +
-                                 std::string(args[i]) +
-                                 " (supported: 4800, 9600)";
+                result.message =
+                    "Unsupported baud rate: " + std::string(args[i]);
                 return result;
             }
 
             explicit_baud = baud.value();
             result.config.session_baud = explicit_baud.value();
+            result.baud_source = ECUSerialBaudSource::ExplicitOverride;
             continue;
         }
 
@@ -70,16 +78,21 @@ ParseECUSerialCLIArgs(std::span<const std::string_view> args) noexcept {
             const auto profile = ParseKnownProfile(args[++i]);
             if (!profile.has_value()) {
                 result.status = ECUSerialCLIParseStatus::Error;
-                result.message = "Unknown profile: " + std::string(args[i]);
+                result.message = "Unknown profile: " + std::string(args[i]) +
+                                 ". Available profiles: fiat-tipo-1.6ie, "
+                                 "renault-clio-1.6-1999";
                 return result;
             }
 
             const std::string current_port = result.config.port;
             const bool current_logging = result.config.enable_logging;
-            result.config = MakeKnownProfileConfig(profile.value(), current_port,
-                                                   current_logging);
+            result.config = MakeKnownProfileConfig(
+                profile.value(), current_port, current_logging);
             if (explicit_baud.has_value()) {
                 result.config.session_baud = explicit_baud.value();
+                result.baud_source = ECUSerialBaudSource::ExplicitOverride;
+            } else {
+                result.baud_source = ECUSerialBaudSource::DefaultProfile;
             }
             continue;
         }
@@ -94,6 +107,7 @@ ParseECUSerialCLIArgs(std::span<const std::string_view> args) noexcept {
         if (baud.has_value()) {
             explicit_baud = baud.value();
             result.config.session_baud = explicit_baud.value();
+            result.baud_source = ECUSerialBaudSource::ExplicitOverride;
             continue;
         }
 

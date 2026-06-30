@@ -6,15 +6,14 @@
 #include <string_view>
 #include <vector>
 
-enum class ECUSerialCLIParseStatus : uint8_t {
-    Ok,
-    HelpRequested,
-    Error
-};
+enum class ECUSerialCLIParseStatus : uint8_t { Ok, HelpRequested, Error };
+
+enum class ECUSerialBaudSource : uint8_t { DefaultProfile, ExplicitOverride };
 
 struct ECUSerialCLIParseResult {
     ECUSerialCLIParseStatus status{ECUSerialCLIParseStatus::Error};
     ECULinkConfig config{};
+    ECUSerialBaudSource baud_source{ECUSerialBaudSource::DefaultProfile};
     std::string message;
 };
 

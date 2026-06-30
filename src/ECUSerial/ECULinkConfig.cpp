@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 
 namespace {
 std::string NormalizeProfile(std::string_view text) {
@@ -10,8 +11,8 @@ std::string NormalizeProfile(std::string_view text) {
 
     for (char ch : text) {
         if (std::isalnum(static_cast<unsigned char>(ch)) != 0) {
-            normalized.push_back(
-                static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+            normalized.push_back(static_cast<char>(
+                std::tolower(static_cast<unsigned char>(ch))));
         } else if (ch == '-' || ch == '_' || ch == ' ') {
             normalized.push_back('-');
         }
@@ -21,33 +22,32 @@ std::string NormalizeProfile(std::string_view text) {
 }
 } // namespace
 
-std::optional<ECUBaudRate> ParseECUBaudRate(std::string_view text) noexcept {
-    if (text == "4800") {
-        return ECUBaudRate::BR4800;
-    }
-    if (text == "9600") {
-        return ECUBaudRate::BR9600;
-    }
-    return std::nullopt;
-}
-
-std::optional<ECUBaudRate> ParseECUBaudRate(uint32_t value) noexcept {
-    switch (value) {
-    case 4800:
-        return ECUBaudRate::BR4800;
-    case 9600:
-        return ECUBaudRate::BR9600;
-    default:
+std::optional<uint32_t> ParseECUBaudRate(std::string_view text) noexcept {
+    uint32_t baud = 0;
+    const char *begin = text.data();
+    const char *end = text.data() + text.size();
+    const auto parse_result = std::from_chars(begin, end, baud);
+    if (parse_result.ec != std::errc() || parse_result.ptr != end) {
         return std::nullopt;
     }
+
+    return ParseECUBaudRate(baud);
 }
 
-std::optional<ECUKnownProfile> ParseKnownProfile(std::string_view text) noexcept {
+std::optional<uint32_t> ParseECUBaudRate(uint32_t value) noexcept {
+    if (value == 0) {
+        return std::nullopt;
+    }
+
+    return value;
+}
+
+std::optional<ECUKnownProfile>
+ParseKnownProfile(std::string_view text) noexcept {
     const std::string normalized = NormalizeProfile(text);
 
     if (normalized == "tipo-1-6ie" || normalized == "tipo-16ie" ||
-        normalized == "fiat-tipo-1-6ie" ||
-        normalized == "fiat-tipo-16ie") {
+        normalized == "fiat-tipo-1-6ie" || normalized == "fiat-tipo-16ie") {
         return ECUKnownProfile::FiatTipo16Ie;
     }
 
@@ -60,16 +60,7 @@ std::optional<ECUKnownProfile> ParseKnownProfile(std::string_view text) noexcept
     return std::nullopt;
 }
 
-const char *ToString(ECUBaudRate baud) noexcept {
-    switch (baud) {
-    case ECUBaudRate::BR4800:
-        return "4800";
-    case ECUBaudRate::BR9600:
-        return "9600";
-    default:
-        return "unknown";
-    }
-}
+std::string ToString(uint32_t baud) { return std::to_string(baud); }
 
 const char *ToString(ECUKnownProfile profile) noexcept {
     switch (profile) {
@@ -80,10 +71,6 @@ const char *ToString(ECUKnownProfile profile) noexcept {
     default:
         return "unknown";
     }
-}
-
-uint32_t ToUint(ECUBaudRate baud) noexcept {
-    return static_cast<uint32_t>(baud);
 }
 
 ECULinkConfig MakeKnownProfileConfig(ECUKnownProfile profile,
@@ -98,10 +85,10 @@ ECULinkConfig MakeKnownProfileConfig(ECUKnownProfile profile,
 
     switch (profile) {
     case ECUKnownProfile::FiatTipo16Ie:
-        config.session_baud = ECUBaudRate::BR4800;
+        config.session_baud = 4800;
         break;
     case ECUKnownProfile::RenaultClio16_1999:
-        config.session_baud = ECUBaudRate::BR9600;
+        config.session_baud = 9600;
         break;
     }
 

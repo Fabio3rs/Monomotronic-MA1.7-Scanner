@@ -354,6 +354,11 @@ int main(int argc, char **argv) {
 
     std::cout << "Using port: " << config.port << std::endl;
     std::cout << "Using baud: " << ToString(config.session_baud) << std::endl;
+    if (parse_result.baud_source == ECUSerialBaudSource::ExplicitOverride) {
+        std::cout << "Baud source: explicit override" << std::endl;
+    } else if (config.profile.has_value()) {
+        std::cout << "Baud source: profile default" << std::endl;
+    }
     if (config.profile.has_value()) {
         std::cout << "Using profile: " << ToString(config.profile.value())
                   << std::endl;
