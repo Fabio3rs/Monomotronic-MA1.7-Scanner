@@ -16,9 +16,36 @@ Firmware principal ESP32 para o scanner Bosch Monomotronic MA1.7.
 ESP32Monomotronic scanner;
 AsyncWebServer server(80);
 String serialCommandBuffer;
+bool technicalModeEnabled = false;
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
 
 namespace {
 enum class EndpointAccess : uint8_t { Always, ReadyOnly, Technical };
+struct LocalizedText {
+    const char *en;
+    const char *pt_br;
+};
+
+TextLocale ResolveLocale(const String &locale) {
+    String normalized = locale;
+    normalized.toLowerCase();
+    normalized.replace('_', '-');
+    return normalized.startsWith("pt") ? TextLocale::PtBr : TextLocale::En;
+}
+
+TextLocale ResolveRequestLocale(AsyncWebServerRequest *request) {
+    if (request != nullptr && request->hasParam("lang")) {
+        return ResolveLocale(request->getParam("lang")->value());
+    }
+    return TextLocale::En;
+}
+
+const char *Localize(TextLocale locale, const LocalizedText &text) {
+    return locale == TextLocale::PtBr ? text.pt_br : text.en;
+}
 
 void AppendJsonEscaped(String &out, const char *text) {
     if (text == nullptr) {
@@ -60,6 +87,22 @@ bool ParseByteValue(const String &text, uint8_t &value) {
     return true;
 }
 
+bool ParseBoolValue(const String &text, bool &value) {
+    if (text == "1" || text == "true" || text == "on") {
+        value = true;
+        return true;
+    }
+    if (text == "0" || text == "false" || text == "off") {
+        value = false;
+        return true;
+    }
+    return false;
+}
+
+bool IsValidCollectionTable(uint8_t table) {
+    return table == 0 || table == 1 || table == 2;
+}
+
 String PacketText(const ECUmmpacket &packet) {
     String value;
     for (uint8_t i = 0; i < packet.data_length; ++i) {
@@ -70,6 +113,8 @@ String PacketText(const ECUmmpacket &packet) {
     }
     return value;
 }
+
+bool IsReadyForCommands(const ECUStatusSnapshot &status);
 
 void AppendPacketJson(String &out, const ECUmmpacket &packet) {
     out += "{";
@@ -114,18 +159,58 @@ void AppendStatusFields(String &out, const ECUStatusSnapshot &status) {
     out += String(status.error_code);
     out += ",\"debug_line\":";
     out += String(status.debug_line);
+    out += ",\"technical_mode_enabled\":";
+    out += technicalModeEnabled ? "true" : "false";
+}
+
+void AppendResponseMeta(String &out, const ECUStatusSnapshot &status) {
+    const ECUHealthSnapshot health = scanner.getHealthSnapshot();
+    const uint32_t now = millis();
+    const wl_status_t wifiStatus = WiFi.status();
+    const bool wifiConnected = wifiStatus == WL_CONNECTED;
+
+    out += ",\"meta\":{";
+    out += "\"generated_at_ms\":";
+    out += String(now);
+    out += ",\"uptime_ms\":";
+    out += String(now);
+    out += ",\"free_heap_bytes\":";
+    out += String(ESP.getFreeHeap());
+    out += ",\"wifi_connected\":";
+    out += wifiConnected ? "true" : "false";
+    out += ",\"wifi_rssi_dbm\":";
+    if (wifiConnected) {
+        out += String(WiFi.RSSI());
+    } else {
+        out += "null";
+    }
+    out += ",\"ready_for_commands\":";
+    out += IsReadyForCommands(status) ? "true" : "false";
+    out += ",\"last_packet_age_ms\":";
+    if (health.last_packet_ms == 0 || health.last_packet_ms > now) {
+        out += "null";
+    } else {
+        out += String(now - health.last_packet_ms);
+    }
+    out += "}";
 }
 
 String BuildErrorJson(const char *errorCode, const char *message) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":false,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"error_code\":\"";
     AppendJsonEscaped(result, errorCode);
     result += "\",\"message\":\"";
     AppendJsonEscaped(result, message);
     result += "\"}";
     return result;
+}
+
+String BuildErrorJson(const char *errorCode, TextLocale locale,
+                      const LocalizedText &message) {
+    return BuildErrorJson(errorCode, Localize(locale, message));
 }
 
 String BuildStatusJson() {
@@ -135,6 +220,7 @@ String BuildStatusJson() {
 
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"init_strings\":[";
 
     bool first = true;
@@ -163,6 +249,7 @@ String BuildHealthJson() {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"health\":{";
     result += "\"packets_sent\":";
     result += String(health.packets_sent);
@@ -186,10 +273,11 @@ String BuildHealthJson() {
     return result;
 }
 
-String BuildCatalogJson() {
+String BuildCatalogJson(TextLocale locale) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"technical\":true,\"sensors\":[";
     const SensorCatalogEntry *catalog = GetSensorCatalog();
     const size_t count = GetSensorCatalogCount();
@@ -203,7 +291,7 @@ String BuildCatalogJson() {
         result += "\"key\":\"";
         AppendJsonEscaped(result, entry.key);
         result += "\",\"name\":\"";
-        AppendJsonEscaped(result, entry.display_name);
+        AppendJsonEscaped(result, GetSensorDisplayName(entry, locale));
         result += "\",\"unit\":\"";
         AppendJsonEscaped(result, entry.unit);
         result += "\",\"id\":";
@@ -227,36 +315,55 @@ bool IsReadyForCommands(const ECUStatusSnapshot &status) {
 }
 
 bool IsOperationAllowed(const ECUStatusSnapshot &status, EndpointAccess access,
-                        int &httpCode, String &payload) {
-    if (access == EndpointAccess::Always || access == EndpointAccess::Technical) {
+                        TextLocale locale, int &httpCode, String &payload) {
+    if (access == EndpointAccess::Always) {
+        return true;
+    }
+
+    if (access == EndpointAccess::Technical && !technicalModeEnabled) {
+        httpCode = 403;
+        payload = BuildErrorJson(
+            "technical_mode_disabled", locale,
+            {"Enable technical mode before using this endpoint",
+             "Habilite o modo tecnico antes de usar este endpoint"});
+        return false;
+    }
+
+    if (access == EndpointAccess::Technical) {
         return true;
     }
 
     if (status.busy) {
         httpCode = 409;
-        payload = BuildErrorJson("busy", "Another ECU operation is in flight");
+        payload = BuildErrorJson("busy", locale,
+                                 {"Another ECU operation is in flight",
+                                  "Outra operacao da ECU esta em andamento"});
         return false;
     }
 
     if (!IsReadyForCommands(status)) {
         httpCode = 412;
-        payload = BuildErrorJson("not_ready",
-                                 "Operation requires ECU ready state");
+        payload = BuildErrorJson("not_ready", locale,
+                                 {"Operation requires ECU ready state",
+                                  "A operacao exige a ECU em estado pronto"});
         return false;
     }
 
     return true;
 }
 
-String BuildErrorsJson() {
+String BuildErrorsJson(TextLocale locale) {
     optional<ECUResponseCollection> response = scanner.ECUReadErrors();
     if (!response.has_value()) {
-        return BuildErrorJson("read_failed", "Failed to read ECU errors");
+        return BuildErrorJson("read_failed", locale,
+                              {"Failed to read ECU errors",
+                               "Falha ao ler os erros da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"errors\":[";
 
     bool first = true;
@@ -268,7 +375,7 @@ String BuildErrorsJson() {
 
         bool present = false;
         const char *description =
-            ESP32Monomotronic::errorPacketToString(packet, present);
+            ESP32Monomotronic::errorPacketToString(packet, present, locale);
 
         if (!first) {
             result += ",";
@@ -289,31 +396,37 @@ String BuildErrorsJson() {
     return result;
 }
 
-String BuildClearErrorsJson() {
+String BuildClearErrorsJson(TextLocale locale) {
     optional<ECUmmpacket> response = scanner.ECUCleanErrors();
     if (!response.has_value()) {
-        return BuildErrorJson("clear_failed", "Failed to clear ECU errors");
+        return BuildErrorJson("clear_failed", locale,
+                              {"Failed to clear ECU errors",
+                               "Falha ao limpar os erros da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"packet\":";
     AppendPacketJson(result, response.value());
     result += "}";
     return result;
 }
 
-String BuildMemoryReadJson(uint8_t hi, uint8_t lo, uint8_t len) {
+String BuildMemoryReadJson(TextLocale locale, uint8_t hi, uint8_t lo,
+                           uint8_t len) {
     optional<ECUResponseCollection> response = scanner.readECUMemory(hi, lo, len);
     if (!response.has_value()) {
-        return BuildErrorJson("memory_read_failed",
-                              "Failed to read ECU memory");
+        return BuildErrorJson("memory_read_failed", locale,
+                              {"Failed to read ECU memory",
+                               "Falha ao ler a memoria da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"technical\":true,\"request\":{\"hi\":";
     result += String(hi);
     result += ",\"lo\":";
@@ -331,7 +444,7 @@ String BuildMemoryReadJson(uint8_t hi, uint8_t lo, uint8_t len) {
     return result;
 }
 
-String BuildCollectionJson(uint8_t requestedTable) {
+String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
     uint8_t tableId = requestedTable;
     if (tableId == 0) {
         tableId = scanner.determineCollectionTable();
@@ -342,13 +455,15 @@ String BuildCollectionJson(uint8_t requestedTable) {
 
     optional<ECUResponseCollection> response = scanner.requestSensorCollection();
     if (!response.has_value()) {
-        return BuildErrorJson("collection_failed",
-                              "Failed to read sensor collection");
+        return BuildErrorJson("collection_failed", locale,
+                              {"Failed to read sensor collection",
+                               "Falha ao ler a coleta de sensores"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     String result = "{\"ok\":true,";
     AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
     result += ",\"table\":";
     result += String(tableId);
     result += ",\"sensors\":[";
@@ -389,7 +504,7 @@ String BuildCollectionJson(uint8_t requestedTable) {
                 result += ",\"key\":\"";
                 AppendJsonEscaped(result, entry->key);
                 result += "\",\"name\":\"";
-                AppendJsonEscaped(result, entry->display_name);
+                AppendJsonEscaped(result, GetSensorDisplayName(*entry, locale));
                 result += "\",\"unit\":\"";
                 AppendJsonEscaped(result, entry->unit);
                 result += "\",\"value\":";
@@ -404,24 +519,45 @@ String BuildCollectionJson(uint8_t requestedTable) {
     return result;
 }
 
-String BuildConnectJson() {
+String BuildConnectJson(TextLocale locale) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     if (strcmp(status.protocol_state, "handshaking") == 0) {
-        return BuildErrorJson("already_connecting",
-                              "Handshake already in progress");
+        return BuildErrorJson("already_connecting", locale,
+                              {"Handshake already in progress",
+                               "O handshake ja esta em andamento"});
     }
 
     if (status.thread_started) {
-        return BuildErrorJson("already_running",
-                              "ECU worker is already running");
+        return BuildErrorJson("already_running", locale,
+                              {"ECU worker is already running",
+                               "A thread da ECU ja esta em execucao"});
     }
 
     const bool started = scanner.init();
     if (!started) {
-        return BuildErrorJson("connect_failed", "Failed to start ECU worker");
+        return BuildErrorJson("connect_failed", locale,
+                              {"Failed to start ECU worker",
+                               "Falha ao iniciar a thread da ECU"});
     }
 
     return BuildStatusJson();
+}
+
+String BuildTechnicalModeJson(bool enabled) {
+    technicalModeEnabled = enabled;
+    return BuildStatusJson();
+}
+
+String BuildRebootJson(TextLocale locale) {
+    const ECUStatusSnapshot status = scanner.getStatusSnapshot();
+    String result = "{\"ok\":true,";
+    AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
+    result += ",\"message\":\"";
+    AppendJsonEscaped(result, Localize(locale, {"ESP32 reboot requested",
+                                                "Reinicio do ESP32 solicitado"}));
+    result += "\"}";
+    return result;
 }
 
 void SendJson(AsyncWebServerRequest *request, int httpCode,
@@ -430,16 +566,17 @@ void SendJson(AsyncWebServerRequest *request, int httpCode,
 }
 
 void SendGuardedJson(AsyncWebServerRequest *request, EndpointAccess access,
-                     String (*builder)()) {
+                     String (*builder)(TextLocale)) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
+    const TextLocale locale = ResolveRequestLocale(request);
     int httpCode = 200;
     String payload;
-    if (!IsOperationAllowed(status, access, httpCode, payload)) {
+    if (!IsOperationAllowed(status, access, locale, httpCode, payload)) {
         SendJson(request, httpCode, payload);
         return;
     }
 
-    SendJson(request, 200, builder());
+    SendJson(request, 200, builder(locale));
 }
 
 void PrintSerialHelp() {
@@ -469,12 +606,12 @@ void HandleSerialCommand(String command) {
     }
 
     if (command == "connect") {
-        Serial.println(BuildConnectJson());
+        Serial.println(BuildConnectJson(TextLocale::En));
         return;
     }
 
     if (command == "catalog") {
-        Serial.println(BuildCatalogJson());
+        Serial.println(BuildCatalogJson(TextLocale::En));
         return;
     }
 
@@ -483,18 +620,19 @@ void HandleSerialCommand(String command) {
     String payload;
     if ((command == "errors" || command == "clear" || command.startsWith("f4") ||
          command.startsWith("mem ")) &&
-        !IsOperationAllowed(status, EndpointAccess::ReadyOnly, httpCode, payload)) {
+        !IsOperationAllowed(status, EndpointAccess::ReadyOnly, TextLocale::En,
+                            httpCode, payload)) {
         Serial.println(payload);
         return;
     }
 
     if (command == "errors") {
-        Serial.println(BuildErrorsJson());
+        Serial.println(BuildErrorsJson(TextLocale::En));
         return;
     }
 
     if (command == "clear") {
-        Serial.println(BuildClearErrorsJson());
+        Serial.println(BuildClearErrorsJson(TextLocale::En));
         return;
     }
 
@@ -504,7 +642,7 @@ void HandleSerialCommand(String command) {
         if (space > 0) {
             ParseByteValue(command.substring(space + 1), table);
         }
-        Serial.println(BuildCollectionJson(table));
+        Serial.println(BuildCollectionJson(TextLocale::En, table));
         return;
     }
 
@@ -528,7 +666,7 @@ void HandleSerialCommand(String command) {
                                           "invalid mem parameters"));
             return;
         }
-        Serial.println(BuildMemoryReadJson(hi, lo, len));
+        Serial.println(BuildMemoryReadJson(TextLocale::En, hi, lo, len));
         return;
     }
 
@@ -553,7 +691,7 @@ void ConfigureRoutes() {
     });
 
     server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
-        SendJson(request, 200, BuildConnectJson());
+        SendJson(request, 200, BuildConnectJson(TextLocale::En));
     });
 
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -565,8 +703,39 @@ void ConfigureRoutes() {
     });
 
     server.on("/api/connect", HTTP_POST, [](AsyncWebServerRequest *request) {
-        SendJson(request, 200, BuildConnectJson());
+        SendJson(request, 200, BuildConnectJson(ResolveRequestLocale(request)));
     });
+
+    server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
+        const TextLocale locale = ResolveRequestLocale(request);
+        SendJson(request, 200, BuildRebootJson(locale));
+        delay(200);
+        ESP.restart();
+    });
+
+    server.on("/api/technical-mode", HTTP_POST,
+              [](AsyncWebServerRequest *request) {
+                  const TextLocale locale = ResolveRequestLocale(request);
+                  if (!request->hasParam("enabled")) {
+                      SendJson(request, 400,
+                               BuildErrorJson("invalid_request", locale,
+                                              {"missing enabled",
+                                               "faltando enabled"}));
+                      return;
+                  }
+
+                  bool enabled = false;
+                  if (!ParseBoolValue(request->getParam("enabled")->value(),
+                                      enabled)) {
+                      SendJson(request, 400,
+                               BuildErrorJson("invalid_request", locale,
+                                              {"invalid enabled",
+                                               "enabled invalido"}));
+                      return;
+                  }
+
+                  SendJson(request, 200, BuildTechnicalModeJson(enabled));
+              });
 
     server.on("/api/sensors/catalog", HTTP_GET,
               [](AsyncWebServerRequest *request) {
@@ -586,18 +755,26 @@ void ConfigureRoutes() {
 
     server.on("/api/memory/read", HTTP_GET, [](AsyncWebServerRequest *request) {
         const ECUStatusSnapshot status = scanner.getStatusSnapshot();
+        const TextLocale locale = ResolveRequestLocale(request);
         int httpCode = 200;
         String payload;
-        if (!IsOperationAllowed(status, EndpointAccess::ReadyOnly, httpCode,
-                                payload)) {
+        if (!IsOperationAllowed(status, EndpointAccess::Technical, locale,
+                                httpCode, payload)) {
+            SendJson(request, httpCode, payload);
+            return;
+        }
+
+        if (!IsOperationAllowed(status, EndpointAccess::ReadyOnly, locale,
+                                httpCode, payload)) {
             SendJson(request, httpCode, payload);
             return;
         }
 
         if (!request->hasParam("hi") || !request->hasParam("lo") ||
             !request->hasParam("len")) {
-            SendJson(request, 400,
-                     BuildErrorJson("invalid_request", "missing hi/lo/len"));
+            SendJson(request, 400, BuildErrorJson("invalid_request", locale,
+                                                  {"missing hi/lo/len",
+                                                   "faltando hi/lo/len"}));
             return;
         }
 
@@ -607,30 +784,41 @@ void ConfigureRoutes() {
         if (!ParseByteValue(request->getParam("hi")->value(), hi) ||
             !ParseByteValue(request->getParam("lo")->value(), lo) ||
             !ParseByteValue(request->getParam("len")->value(), len)) {
-            SendJson(request, 400, BuildErrorJson("invalid_request",
-                                                  "invalid hi/lo/len"));
+            SendJson(request, 400,
+                     BuildErrorJson("invalid_request", locale,
+                                    {"invalid hi/lo/len",
+                                     "hi/lo/len invalidos"}));
             return;
         }
 
-        SendJson(request, 200, BuildMemoryReadJson(hi, lo, len));
+        SendJson(request, 200, BuildMemoryReadJson(locale, hi, lo, len));
     });
 
     server.on("/api/sensors/collection", HTTP_GET,
               [](AsyncWebServerRequest *request) {
                   const ECUStatusSnapshot status = scanner.getStatusSnapshot();
+                  const TextLocale locale = ResolveRequestLocale(request);
                   int httpCode = 200;
                   String payload;
                   if (!IsOperationAllowed(status, EndpointAccess::ReadyOnly,
-                                          httpCode, payload)) {
+                                          locale, httpCode, payload)) {
                       SendJson(request, httpCode, payload);
                       return;
                   }
 
                   uint8_t table = 0;
                   if (request->hasParam("table")) {
-                      ParseByteValue(request->getParam("table")->value(), table);
+                      if (!ParseByteValue(request->getParam("table")->value(),
+                                          table) ||
+                          !IsValidCollectionTable(table)) {
+                          SendJson(request, 400,
+                                   BuildErrorJson("invalid_request", locale,
+                                                  {"invalid collection table",
+                                                   "tabela de coleta invalida"}));
+                          return;
+                      }
                   }
-                  SendJson(request, 200, BuildCollectionJson(table));
+                  SendJson(request, 200, BuildCollectionJson(locale, table));
               });
 }
 } // namespace
@@ -644,7 +832,6 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
 
     Serial.begin(115200);
-    Serial2.begin(config.session_baud, SERIAL_8N1);
 
     serialCommandBuffer.reserve(128);
 
@@ -652,11 +839,11 @@ void setup() {
         Serial.println("An error occurred while mounting SPIFFS");
     }
 
-    WiFi.begin(ssid, password);
+    WiFi.begin(kWifiStaSsid, kWifiStaPassword);
     digitalWrite(LED_BUILTIN, LOW);
 
     Serial.println("Setting AP (Access Point)...");
-    WiFi.softAP("Test_WiFi", "d3e4a0b1c2");
+    WiFi.softAP(kWifiApSsid, kWifiApPassword);
 
     const IPAddress ip = WiFi.softAPIP();
     Serial.print("AP IP address: ");

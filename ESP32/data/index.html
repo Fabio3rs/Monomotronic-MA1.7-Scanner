@@ -148,6 +148,11 @@
       font-weight: 700;
     }
 
+    .tab:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     button {
       padding: 10px 14px;
       background: var(--accent);
@@ -163,6 +168,11 @@
 
     button.warn {
       background: var(--warn);
+      color: #fff;
+    }
+
+    button.danger {
+      background: var(--err);
       color: #fff;
     }
 
@@ -210,11 +220,31 @@
       padding: 12px;
     }
 
+    .table-head {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr;
+      gap: 10px;
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
     .table-row {
       display: grid;
       grid-template-columns: 1.4fr 0.8fr 0.8fr;
       gap: 10px;
       align-items: baseline;
+    }
+
+    .mobile-label {
+      display: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
     }
 
     .small {
@@ -236,6 +266,10 @@
 
     .toolbar .row {
       flex: 1 1 auto;
+    }
+
+    .locale-field {
+      min-width: 160px;
     }
 
     .field {
@@ -266,6 +300,41 @@
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
       .table-row { grid-template-columns: 1fr; }
+      .table-head { display: none; }
+      .mobile-label { display: block; }
+      .hero-top, .toolbar {
+        align-items: stretch;
+      }
+      .hero-top > div,
+      .toolbar > .row,
+      .toolbar > .pill,
+      .toolbar > button {
+        width: 100%;
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .row > .field,
+      .actions > button,
+      .row > button,
+      .toolbar button,
+      .toolbar select {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .shell {
+        padding: 14px 10px 24px;
+      }
+      .hero,
+      .card {
+        border-radius: 18px;
+      }
+      .tabs {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -279,7 +348,9 @@
         </div>
         <div class="toolbar">
           <span id="liveBadge" class="pill">No live data yet</span>
+          <span id="netBadge" class="pill">Link idle</span>
           <span id="cacheBadge" class="pill">Cache empty</span>
+          <button id="rebootBtn" class="danger">Reboot ESP32</button>
         </div>
       </div>
     </section>
@@ -289,6 +360,13 @@
         <section class="card alt">
           <div class="toolbar">
             <div class="row">
+              <div class="field locale-field">
+                <label id="languageLabel" for="languageSelect">Language</label>
+                <select id="languageSelect">
+                  <option value="en">English</option>
+                  <option value="pt-BR">Portugues (Brasil)</option>
+                </select>
+              </div>
               <button id="connectBtn">Connect ECU</button>
               <button id="refreshBtn" class="secondary">Refresh now</button>
               <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
@@ -297,7 +375,7 @@
               <span id="pollInfo">Polling status only</span>
             </div>
           </div>
-          <div id="messageBox" class="message">Waiting for first status poll.</div>
+          <div id="messageBox" class="message" aria-live="polite">Waiting for first status poll.</div>
         </section>
 
         <section class="card">
@@ -329,6 +407,11 @@
               </div>
             </div>
             <div id="initStrings" class="list"></div>
+            <div class="table-head" aria-hidden="true">
+              <div>Sensor</div>
+              <div>Raw</div>
+              <div>Value</div>
+            </div>
             <div id="sensorList" class="table"></div>
           </div>
 
@@ -374,7 +457,7 @@
       <aside class="stack">
         <section class="card">
           <h3>Current Protocol State</h3>
-          <div id="stateSummary" class="message">Status unavailable.</div>
+          <div id="stateSummary" class="message" aria-live="polite">Status unavailable.</div>
           <div class="footer-note">The browser never sends a second ECU request while another one is active.</div>
         </section>
 

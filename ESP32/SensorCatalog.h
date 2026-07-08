@@ -5,9 +5,12 @@
 #include <cstdint>
 #include <utility>
 
+enum class TextLocale : uint8_t { En = 0, PtBr };
+
 struct SensorCatalogEntry {
     const char *key;
-    const char *display_name;
+    const char *display_name_en;
+    const char *display_name_pt_br;
     const char *unit;
     uint8_t id;
     uint8_t subcommand;
@@ -27,5 +30,7 @@ const SensorCatalogEntry *GetSensorCatalog();
 size_t GetSensorCatalogCount();
 const SensorCatalogEntry *FindSensorCatalogEntry(uint8_t subcommand,
                                                  uint8_t id);
+const char *GetSensorDisplayName(const SensorCatalogEntry &entry,
+                                 TextLocale locale);
 const std::array<KlineEntry, kCollectionSlots> *
 GetCollectionTable(uint8_t table_id);

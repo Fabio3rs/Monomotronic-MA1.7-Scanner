@@ -29,6 +29,7 @@ SOFTWARE.
 */
 
 #include "Arduino.h"
+#include "SensorCatalog.h"
 #include "optional.h"
 #include <array>
 #include <atomic>
@@ -251,10 +252,12 @@ class ESP32Monomotronic {
         ERR_CLEAR_RESPONSE_TIMEOUT = 13,
         ERR_PACKET_END = 14,
         ERR_PACKET_SIZE = 15,
-        ERR_PACKET_UNEXPECTED = 16
+        ERR_PACKET_UNEXPECTED = 16,
+        ERR_TASK_CREATE = 17
     };
 
-    static const char *errorPacketToString(const ECUmmpacket &p, bool &present);
+    static const char *errorPacketToString(const ECUmmpacket &p, bool &present,
+                                           TextLocale locale);
 
     bool init();
     void stop() { stopRequested_ = true; }

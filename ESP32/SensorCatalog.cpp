@@ -48,29 +48,37 @@ float DecodeTSCoefficient(int raw) { return ToSigned8(raw) * 8.0f; }
 float DecodeRaw(int raw) { return static_cast<float>(raw); }
 
 constexpr std::array<SensorCatalogEntry, 13> kSensorCatalog{{
-    {"ect", "Temp. Agua", "C", 0x63, 0x00, 1, 1, DecodeWaterTemperature},
-    {"tps_track1_pct", "TPS Trilha 1", "%", 0x66, 0x00, 1, 1,
+    {"ect", "Water Temp.", "Temp. Agua", "C", 0x63, 0x00, 1, 1,
+     DecodeWaterTemperature},
+    {"tps_track1_pct", "TPS Track 1", "TPS Trilha 1", "%", 0x66, 0x00, 1, 1,
      DecodeThrottlePercentTrack1},
-    {"rpm_engine", "RPM Motor", "rpm", 0x47, 0x00, 1, 1, DecodeEngineRPM},
-    {"iat", "Temp. Ar", "C", 0x62, 0x00, 1, 1, DecodeAirTemperature},
-    {"lambda_integrator_pct", "Integrador Lambda", "%", 0x0C, 0xF8, 1, 1,
+    {"rpm_engine", "Engine RPM", "RPM Motor", "rpm", 0x47, 0x00, 1, 1,
+     DecodeEngineRPM},
+    {"iat", "Air Temp.", "Temp. Ar", "C", 0x62, 0x00, 1, 1,
+     DecodeAirTemperature},
+    {"lambda_integrator_pct", "Lambda Integrator", "Integrador Lambda", "%",
+     0x0C, 0xF8, 1, 1,
      DecodeLambdaIntegrator},
-    {"fuel_trim_long_term_pct", "LTFT", "%", 0x6C, 0xF8, 1, 1,
+    {"fuel_trim_long_term_pct", "LTFT", "LTFT", "%", 0x6C, 0xF8, 1, 1,
      DecodeGeneralMapAdaption},
-    {"idle_fuel_additive_us", "Correcao Lenta", "us", 0x6F, 0xF8, 1, 1,
+    {"idle_fuel_additive_us", "Idle Correction", "Correcao Lenta", "us", 0x6F,
+     0xF8, 1, 1,
      DecodeMLLECKCoefficient},
-    {"idle_regulator_deg", "Atuador Lenta", "graus", 0x3D, 0xF8, 1, 1,
+    {"idle_regulator_deg", "Idle Actuator", "Atuador Lenta", "graus", 0x3D,
+     0xF8, 1, 1,
      DecodeIdleRegulator},
-    {"batteryvoltage_adc", "Bateria", "V", 0x61, 0x00, 1, 1,
+    {"batteryvoltage_adc", "Battery", "Bateria", "V", 0x61, 0x00, 1, 1,
      DecodeBatteryVoltage},
-    {"evap_purge_adapt_factor", "Adaptacao EVAP", "ratio", 0x69, 0xF8, 1, 1,
+    {"evap_purge_adapt_factor", "EVAP Adaptation", "Adaptacao EVAP", "ratio",
+     0x69, 0xF8, 1, 1,
      DecodeFTEADSelfAdaption},
-    {"tps_absolute_deg", "Angulo Borboleta", "graus", 0x70, 0x00, 1, 2,
+    {"tps_absolute_deg", "Throttle Angle", "Angulo Borboleta", "graus", 0x70,
+     0x00, 1, 2,
      DecodeThrottleAngle},
-    {"fuel_system_state_flags_u8", "Flags Combustivel", "flags", 0x2F, 0x00, 1,
-     2, DecodeRaw},
-    {"transient_fuel_additive_us", "Correcao Transitoria", "us", 0x72, 0xF8, 1,
-     2, DecodeTSCoefficient},
+    {"fuel_system_state_flags_u8", "Fuel Flags", "Flags Combustivel", "flags",
+     0x2F, 0x00, 1, 2, DecodeRaw},
+    {"transient_fuel_additive_us", "Transient Correction",
+     "Correcao Transitoria", "us", 0x72, 0xF8, 1, 2, DecodeTSCoefficient},
 }};
 } // namespace
 
@@ -112,6 +120,12 @@ const SensorCatalogEntry *FindSensorCatalogEntry(uint8_t subcommand,
         }
     }
     return nullptr;
+}
+
+const char *GetSensorDisplayName(const SensorCatalogEntry &entry,
+                                 TextLocale locale) {
+    return locale == TextLocale::PtBr ? entry.display_name_pt_br
+                                      : entry.display_name_en;
 }
 
 const std::array<KlineEntry, kCollectionSlots> *

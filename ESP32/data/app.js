@@ -1,7 +1,264 @@
 (function () {
+  const translations = {
+    en: {
+      pageTitle: "MA1.7 ESP32 Scanner",
+      heroSubtitle: "Single-request browser client with protocol-state gating.",
+      languageLabel: "Language",
+      noLiveData: "No live data yet",
+      linkIdle: "Link idle",
+      linkOnline: "Link {ms} ms | {age}",
+      linkOnlineFresh: "Link {ms} ms | ECU {age}",
+      linkBusy: "Link busy: {operation}",
+      linkOffline: "Link offline",
+      linkRebooting: "Link rebooting",
+      ageNow: "just now",
+      ageSeconds: "{count}s ago",
+      ageMinutes: "{count}m ago",
+      cacheEmpty: "Cache empty",
+      connectEcu: "Connect ECU",
+      rebootEsp32: "Reboot ESP32",
+      refreshNow: "Refresh now",
+      pollingStatusOnly: "Polling status only",
+      rebootingEsp32: "ESP32 rebooting. Waiting for it to come back.",
+      waitingFirstPoll: "Waiting for first status poll.",
+      sessionStatus: "Session Status",
+      tabLive: "Live",
+      tabDtc: "DTC",
+      tabHealth: "Health",
+      tabTechnical: "Technical",
+      collectionTable: "Collection table",
+      auto: "Auto",
+      table1: "Table 1",
+      table2: "Table 2",
+      readLiveSensors: "Read live sensors",
+      readDtc: "Read DTC",
+      clearDtc: "Clear DTC",
+      refreshHealth: "Refresh health",
+      technicalWorkflow: "Technical tools stay outside the normal driving workflow.",
+      addrHi: "Addr HI",
+      addrLo: "Addr LO",
+      length: "Length",
+      readMemory: "Read memory",
+      loadSensorCatalog: "Load sensor catalog",
+      currentProtocolState: "Current Protocol State",
+      sensorColumnRaw: "Raw",
+      sensorColumnValue: "Value",
+      statusUnavailable: "Status unavailable.",
+      footerActiveRequest: "The browser never sends a second ECU request while another one is active.",
+      cachedSnapshot: "Cached Snapshot",
+      nothingStoredYet: "Nothing stored yet.",
+      footerCache: "Local cache is only for UX and history. The ESP32 remains the source of truth.",
+      metricProtocol: "Protocol",
+      metricOperation: "Operation",
+      metricConnected: "Connected",
+      metricReady: "Ready",
+      metricBusy: "Busy",
+      metricErrorCode: "Error code",
+      yes: "yes",
+      no: "no",
+      unknown: "unknown",
+      none: "none",
+      state: "state",
+      busy: "busy",
+      ready: "ready",
+      op: "op",
+      err: "err",
+      initStringsPending: "Init strings become available only after ECU ready state.",
+      noStatusResponse: "No status response yet.",
+      cacheStoredPrefix: "Stored locally:",
+      cacheStoredSuffix: "Cached values are never replayed as ECU commands.",
+      technicalModeOn: "Technical mode on",
+      technicalModeOff: "Technical mode off",
+      technicalEnabledDetail: "Technical mode enabled. Raw memory and catalog are visible here.",
+      technicalDisabledDetail: "Technical mode disabled. This tab stays for explicit technical access only.",
+      noLiveSensorSnapshot: "No live sensor snapshot loaded yet.",
+      sensorLabel: "Sensor",
+      noDtcSnapshot: "No DTC snapshot loaded yet.",
+      dtcPresent: "Present",
+      dtcStored: "Stored",
+      unknownDtc: "Unknown DTC",
+      noHealthSnapshot: "No health snapshot loaded yet.",
+      noTechnicalData: "No technical data loaded yet.",
+      catalog: "Catalog",
+      entries: "entries",
+      packet: "Packet",
+      statusRefreshed: "Status refreshed from ESP32.",
+      requestStarted: "Sending {operation}...",
+      requestFinished: "{operation} completed in {ms} ms.",
+      rebootConfirm: "Reboot the ESP32 now?",
+      rebootRequested: "Reboot command sent. Waiting for the ESP32 to come back.",
+      liveSensorUpdated: "Live sensor snapshot updated.",
+      dtcUpdated: "DTC snapshot updated.",
+      clearDtcResponse: "Clear DTC response frame={frame}.",
+      healthUpdated: "Health snapshot updated.",
+      rawMemoryUpdated: "Raw memory snapshot updated.",
+      catalogLoaded: "Catalog loaded.",
+      technicalEnabled: "Technical mode enabled on ESP32.",
+      technicalDisabled: "Technical mode disabled on ESP32.",
+      browserRequestSuppressed: "Browser request suppressed: another operation is already in flight.",
+      networkError: "Network error: {message}",
+      requestFailed: "Request failed.",
+      handshakeActive: "Handshake active: polling status only",
+      rebootPendingPoll: "Reboot in progress: polling for ESP32 return",
+      disconnectedReadyToConnect: "Disconnected: reconnect is available",
+      statusLinePrimary: "Protocol {state}",
+      statusLineSecondary: "Connected {connected} | Ready {ready} | Busy {busy}",
+      statusLineTertiary: "Operation {operation} | Error {error}",
+      busyWith: "Busy with {operation}",
+      readyPollingLive: "Ready: polling status and live sensors",
+      readyPollingHealth: "Ready: polling status and health",
+      readyPollingOnly: "Ready: polling status only",
+      pollingWhileState: "Polling status while state={state}",
+      cacheStatus: "status",
+      cacheSensors: "sensors",
+      cacheDtc: "dtc",
+      cacheHealth: "health",
+      cacheTechnical: "technical",
+      protocolStateBusy: "busy",
+      protocolStateReady: "ready",
+      protocolStateHandshaking: "handshaking",
+      protocolStateError: "error",
+      protocolStateDisconnected: "disconnected",
+      operationReadErrors: "read errors",
+      operationReadSensor: "read sensor",
+      operationReadMemory: "read memory",
+      operationReadCollection: "read collection",
+      operationClearErrors: "clear errors",
+      operationDetermineCollectionTable: "determine collection table",
+      operationNone: "none"
+    },
+    "pt-BR": {
+      pageTitle: "Scanner ESP32 MA1.7",
+      heroSubtitle: "Cliente web de requisicao unica com bloqueio por estado do protocolo.",
+      languageLabel: "Idioma",
+      noLiveData: "Sem dados ao vivo ainda",
+      linkIdle: "Link ocioso",
+      linkOnline: "Link {ms} ms | {age}",
+      linkOnlineFresh: "Link {ms} ms | ECU {age}",
+      linkBusy: "Link ocupado: {operation}",
+      linkOffline: "Link offline",
+      linkRebooting: "Link reiniciando",
+      ageNow: "agora",
+      ageSeconds: "ha {count}s",
+      ageMinutes: "ha {count}min",
+      cacheEmpty: "Cache vazio",
+      connectEcu: "Conectar ECU",
+      rebootEsp32: "Reiniciar ESP32",
+      refreshNow: "Atualizar agora",
+      pollingStatusOnly: "Consultando apenas o status",
+      rebootingEsp32: "ESP32 reiniciando. Aguardando ele voltar.",
+      waitingFirstPoll: "Aguardando a primeira consulta de status.",
+      sessionStatus: "Status da sessao",
+      tabLive: "Ao vivo",
+      tabDtc: "DTC",
+      tabHealth: "Saude",
+      tabTechnical: "Tecnico",
+      collectionTable: "Tabela de coleta",
+      auto: "Auto",
+      table1: "Tabela 1",
+      table2: "Tabela 2",
+      readLiveSensors: "Ler sensores ao vivo",
+      readDtc: "Ler DTC",
+      clearDtc: "Limpar DTC",
+      refreshHealth: "Atualizar saude",
+      technicalWorkflow: "Ferramentas tecnicas ficam fora do fluxo normal de conducao.",
+      addrHi: "End. HI",
+      addrLo: "End. LO",
+      length: "Tamanho",
+      readMemory: "Ler memoria",
+      loadSensorCatalog: "Carregar catalogo de sensores",
+      currentProtocolState: "Estado atual do protocolo",
+      sensorColumnRaw: "Bruto",
+      sensorColumnValue: "Valor",
+      statusUnavailable: "Status indisponivel.",
+      footerActiveRequest: "O navegador nunca envia uma segunda requisicao para a ECU enquanto outra estiver ativa.",
+      cachedSnapshot: "Snapshot em cache",
+      nothingStoredYet: "Nada armazenado ainda.",
+      footerCache: "O cache local serve apenas para UX e historico. O ESP32 continua sendo a fonte da verdade.",
+      metricProtocol: "Protocolo",
+      metricOperation: "Operacao",
+      metricConnected: "Conectado",
+      metricReady: "Pronto",
+      metricBusy: "Ocupado",
+      metricErrorCode: "Codigo de erro",
+      yes: "sim",
+      no: "nao",
+      unknown: "desconhecido",
+      none: "nenhuma",
+      state: "estado",
+      busy: "ocupado",
+      ready: "pronto",
+      op: "op",
+      err: "erro",
+      initStringsPending: "As strings de inicializacao ficam disponiveis somente depois de a ECU entrar em estado pronto.",
+      noStatusResponse: "Ainda nao houve resposta de status.",
+      cacheStoredPrefix: "Armazenado localmente:",
+      cacheStoredSuffix: "Valores em cache nunca sao reenviados como comandos para a ECU.",
+      technicalModeOn: "Modo tecnico ligado",
+      technicalModeOff: "Modo tecnico desligado",
+      technicalEnabledDetail: "Modo tecnico habilitado. Memoria bruta e catalogo ficam visiveis aqui.",
+      technicalDisabledDetail: "Modo tecnico desabilitado. Esta aba fica reservada para acesso tecnico explicito.",
+      noLiveSensorSnapshot: "Nenhum snapshot de sensores ao vivo foi carregado ainda.",
+      sensorLabel: "Sensor",
+      noDtcSnapshot: "Nenhum snapshot de DTC foi carregado ainda.",
+      dtcPresent: "Presente",
+      dtcStored: "Memorizado",
+      unknownDtc: "DTC desconhecido",
+      noHealthSnapshot: "Nenhum snapshot de saude foi carregado ainda.",
+      noTechnicalData: "Nenhum dado tecnico foi carregado ainda.",
+      catalog: "Catalogo",
+      entries: "entradas",
+      packet: "Pacote",
+      statusRefreshed: "Status atualizado a partir do ESP32.",
+      requestStarted: "Enviando {operation}...",
+      requestFinished: "{operation} concluida em {ms} ms.",
+      rebootConfirm: "Reiniciar o ESP32 agora?",
+      rebootRequested: "Comando de reinicio enviado. Aguardando o ESP32 voltar.",
+      liveSensorUpdated: "Snapshot de sensores ao vivo atualizado.",
+      dtcUpdated: "Snapshot de DTC atualizado.",
+      clearDtcResponse: "Resposta de limpeza de DTC frame={frame}.",
+      healthUpdated: "Snapshot de saude atualizado.",
+      rawMemoryUpdated: "Snapshot de memoria bruta atualizado.",
+      catalogLoaded: "Catalogo carregado.",
+      technicalEnabled: "Modo tecnico habilitado no ESP32.",
+      technicalDisabled: "Modo tecnico desabilitado no ESP32.",
+      browserRequestSuppressed: "Requisicao do navegador suprimida: outra operacao ja esta em andamento.",
+      networkError: "Erro de rede: {message}",
+      requestFailed: "Falha na requisicao.",
+      handshakeActive: "Handshake ativo: consultando apenas o status",
+      rebootPendingPoll: "Reinicio em andamento: consultando o retorno do ESP32",
+      disconnectedReadyToConnect: "Desconectado: reconexao disponivel",
+      statusLinePrimary: "Protocolo {state}",
+      statusLineSecondary: "Conectado {connected} | Pronto {ready} | Ocupado {busy}",
+      statusLineTertiary: "Operacao {operation} | Erro {error}",
+      busyWith: "Ocupado com {operation}",
+      readyPollingLive: "Pronto: consultando status e sensores ao vivo",
+      readyPollingHealth: "Pronto: consultando status e saude",
+      readyPollingOnly: "Pronto: consultando apenas o status",
+      pollingWhileState: "Consultando status enquanto estado={state}",
+      cacheStatus: "status",
+      cacheSensors: "sensores",
+      cacheDtc: "dtc",
+      cacheHealth: "saude",
+      cacheTechnical: "tecnico",
+      protocolStateBusy: "ocupado",
+      protocolStateReady: "pronto",
+      protocolStateHandshaking: "handshake",
+      protocolStateError: "erro",
+      protocolStateDisconnected: "desconectado",
+      operationReadErrors: "leitura de erros",
+      operationReadSensor: "leitura de sensor",
+      operationReadMemory: "leitura de memoria",
+      operationReadCollection: "leitura de coleta",
+      operationClearErrors: "limpeza de erros",
+      operationDetermineCollectionTable: "determinacao da tabela de coleta",
+      operationNone: "nenhuma"
+    }
+  };
+
   const storageKeys = {
     tab: "ma17.activeTab",
-    technicalMode: "ma17.technicalMode",
+    locale: "ma17.locale",
     lastStatus: "ma17.lastStatus",
     lastSensors: "ma17.lastSensors",
     lastErrors: "ma17.lastErrors",
@@ -9,20 +266,31 @@
     lastTechnical: "ma17.lastTechnical"
   };
 
+  const initialLocale = detectInitialLocale();
   const state = {
     activeTab: localStorage.getItem(storageKeys.tab) || "live",
-    technicalMode: localStorage.getItem(storageKeys.technicalMode) === "true",
+    locale: initialLocale,
+    technicalMode: false,
     requestInFlight: false,
-    status: readJson(storageKeys.lastStatus),
-    sensors: readJson(storageKeys.lastSensors),
-    errors: readJson(storageKeys.lastErrors),
-    health: readJson(storageKeys.lastHealth),
-    technical: readJson(storageKeys.lastTechnical),
+    rebootPendingUntil: 0,
+    lastRequestStartedAt: 0,
+    lastRoundTripMs: null,
+    lastSuccessAt: 0,
+    backendReachable: false,
+    activeRequestLabel: "",
+    status: readCache(storageKeys.lastStatus, initialLocale),
+    sensors: readCache(storageKeys.lastSensors, initialLocale),
+    errors: readCache(storageKeys.lastErrors, initialLocale),
+    health: readCache(storageKeys.lastHealth, initialLocale),
+    technical: readCache(storageKeys.lastTechnical, initialLocale),
     pollTimer: null
   };
 
   const els = {
+    title: document.querySelector(".title"),
+    subtitle: document.querySelector(".subtitle"),
     liveBadge: byId("liveBadge"),
+    netBadge: byId("netBadge"),
     cacheBadge: byId("cacheBadge"),
     pollInfo: byId("pollInfo"),
     messageBox: byId("messageBox"),
@@ -35,6 +303,7 @@
     healthList: byId("healthList"),
     technicalList: byId("technicalList"),
     connectBtn: byId("connectBtn"),
+    rebootBtn: byId("rebootBtn"),
     refreshBtn: byId("refreshBtn"),
     technicalToggleBtn: byId("technicalToggleBtn"),
     loadSensorsBtn: byId("loadSensorsBtn"),
@@ -43,6 +312,27 @@
     loadHealthBtn: byId("loadHealthBtn"),
     readMemoryBtn: byId("readMemoryBtn"),
     loadCatalogBtn: byId("loadCatalogBtn"),
+    languageLabel: byId("languageLabel"),
+    languageSelect: byId("languageSelect"),
+    sessionStatusHeading: document.querySelector("main .card h2"),
+    tabLiveButton: document.querySelector('.tab[data-tab="live"]'),
+    tabDtcButton: document.querySelector('.tab[data-tab="dtc"]'),
+    tabHealthButton: document.querySelector('.tab[data-tab="health"]'),
+    tabTechnicalButton: document.querySelector('.tab[data-tab="technical"]'),
+    tabButtons: Array.from(document.querySelectorAll(".tab")),
+    collectionTableLabel: document.querySelector('label[for="tableSelect"]'),
+    tableAutoOption: document.querySelector('#tableSelect option[value="0"]'),
+    table1Option: document.querySelector('#tableSelect option[value="1"]'),
+    table2Option: document.querySelector('#tableSelect option[value="2"]'),
+    sensorTableHead: document.querySelector(".table-head"),
+    technicalSummary: byId("tab-technical").querySelector(".small"),
+    memHiLabel: document.querySelector('label[for="memHi"]'),
+    memLoLabel: document.querySelector('label[for="memLo"]'),
+    memLenLabel: document.querySelector('label[for="memLen"]'),
+    currentProtocolHeading: document.querySelector("aside .card h3"),
+    currentProtocolFooter: document.querySelectorAll(".footer-note")[0],
+    cachedSnapshotHeading: document.querySelectorAll("aside .card h3")[1],
+    cachedSnapshotFooter: document.querySelectorAll(".footer-note")[1],
     tableSelect: byId("tableSelect"),
     memHi: byId("memHi"),
     memLo: byId("memLo"),
@@ -55,6 +345,19 @@
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function normalizeLocale(locale) {
+    const raw = String(locale || "").trim().toLowerCase().replace("_", "-");
+    return raw.startsWith("pt") ? "pt-BR" : "en";
+  }
+
+  function detectInitialLocale() {
+    const stored = localStorage.getItem(storageKeys.locale);
+    if (stored) {
+      return normalizeLocale(stored);
+    }
+    return normalizeLocale(navigator.language || navigator.userLanguage || "en");
   }
 
   function readJson(key) {
@@ -70,19 +373,107 @@
     localStorage.setItem(key, JSON.stringify(value));
   }
 
+  function cacheKey(baseKey, locale) {
+    return `${baseKey}.${normalizeLocale(locale)}`;
+  }
+
+  function readCache(baseKey, locale) {
+    return readJson(cacheKey(baseKey, locale));
+  }
+
+  function writeCache(baseKey, value) {
+    writeJson(cacheKey(baseKey, state.locale), value);
+  }
+
+  function t(key, replacements) {
+    const localeTable = translations[state.locale] || translations.en;
+    let text = localeTable[key] || translations.en[key] || key;
+    if (!replacements) {
+      return text;
+    }
+
+    Object.keys(replacements).forEach((name) => {
+      text = text.replace(`{${name}}`, String(replacements[name]));
+    });
+    return text;
+  }
+
+  function translateProtocolState(protocolState) {
+    const map = {
+      busy: "protocolStateBusy",
+      ready: "protocolStateReady",
+      handshaking: "protocolStateHandshaking",
+      error: "protocolStateError",
+      disconnected: "protocolStateDisconnected"
+    };
+    return t(map[protocolState] || "unknown");
+  }
+
+  function translateOperation(operation) {
+    const map = {
+      read_errors: "operationReadErrors",
+      read_sensor: "operationReadSensor",
+      read_memory: "operationReadMemory",
+      read_collection: "operationReadCollection",
+      clear_errors: "operationClearErrors",
+      determine_collection_table: "operationDetermineCollectionTable",
+      none: "operationNone"
+    };
+    return t(map[operation] || "unknown");
+  }
+
+  function setStaticText() {
+    document.documentElement.lang = state.locale;
+    document.title = t("pageTitle");
+    els.title.textContent = t("pageTitle");
+    els.subtitle.textContent = t("heroSubtitle");
+    els.languageLabel.textContent = t("languageLabel");
+    els.languageSelect.value = state.locale;
+    els.connectBtn.textContent = t("connectEcu");
+    els.rebootBtn.textContent = t("rebootEsp32");
+    els.refreshBtn.textContent = t("refreshNow");
+    els.sessionStatusHeading.textContent = t("sessionStatus");
+    els.tabLiveButton.textContent = t("tabLive");
+    els.tabDtcButton.textContent = t("tabDtc");
+    els.tabHealthButton.textContent = t("tabHealth");
+    els.tabTechnicalButton.textContent = t("tabTechnical");
+    els.collectionTableLabel.textContent = t("collectionTable");
+    els.tableAutoOption.textContent = t("auto");
+    els.table1Option.textContent = t("table1");
+    els.table2Option.textContent = t("table2");
+    if (els.sensorTableHead) {
+      const columns = els.sensorTableHead.children;
+      columns[0].textContent = t("sensorLabel");
+      columns[1].textContent = t("sensorColumnRaw");
+      columns[2].textContent = t("sensorColumnValue");
+    }
+    els.loadSensorsBtn.textContent = t("readLiveSensors");
+    els.readErrorsBtn.textContent = t("readDtc");
+    els.clearErrorsBtn.textContent = t("clearDtc");
+    els.loadHealthBtn.textContent = t("refreshHealth");
+    els.memHiLabel.textContent = t("addrHi");
+    els.memLoLabel.textContent = t("addrLo");
+    els.memLenLabel.textContent = t("length");
+    els.readMemoryBtn.textContent = t("readMemory");
+    els.loadCatalogBtn.textContent = t("loadSensorCatalog");
+    els.currentProtocolHeading.textContent = t("currentProtocolState");
+    els.currentProtocolFooter.textContent = t("footerActiveRequest");
+    els.cachedSnapshotHeading.textContent = t("cachedSnapshot");
+    els.cachedSnapshotFooter.textContent = t("footerCache");
+  }
+
   function bindEvents() {
     document.querySelectorAll(".tab").forEach((button) => {
       button.addEventListener("click", () => setTab(button.dataset.tab));
     });
 
+    els.languageSelect.addEventListener("change", onLocaleChange);
+
     els.connectBtn.addEventListener("click", () =>
       runAction("/api/connect", { method: "POST" }, onStatusResponse));
+    els.rebootBtn.addEventListener("click", rebootEsp32);
     els.refreshBtn.addEventListener("click", () => pollStatus(true));
-    els.technicalToggleBtn.addEventListener("click", () => {
-      state.technicalMode = !state.technicalMode;
-      localStorage.setItem(storageKeys.technicalMode, String(state.technicalMode));
-      renderAll();
-    });
+    els.technicalToggleBtn.addEventListener("click", toggleTechnicalMode);
     els.loadSensorsBtn.addEventListener("click", loadSensors);
     els.readErrorsBtn.addEventListener("click", loadErrors);
     els.clearErrorsBtn.addEventListener("click", clearErrors);
@@ -99,7 +490,7 @@
   }
 
   function renderTabs() {
-    document.querySelectorAll(".tab").forEach((button) => {
+    els.tabButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.tab === state.activeTab);
     });
 
@@ -109,8 +500,10 @@
   }
 
   function renderAll() {
+    setStaticText();
     renderTabs();
     renderStatus();
+    renderNetworkBadge();
     renderCacheSummary();
     renderTechnicalMode();
     renderCachedSections();
@@ -121,17 +514,20 @@
     const status = state.status;
     if (!status) {
       els.statusGrid.innerHTML = "";
-      els.stateSummary.textContent = "No status response yet.";
+      els.liveBadge.textContent = t("noLiveData");
+      els.pollInfo.textContent = isRebootPending() ? t("rebootPendingPoll") : t("pollingStatusOnly");
+      els.stateSummary.textContent = t("noStatusResponse");
+      setMessage(isRebootPending() ? t("rebootingEsp32") : t("waitingFirstPoll"));
       return;
     }
 
     const metrics = [
-      ["Protocol", status.protocol_state || "unknown"],
-      ["Operation", status.current_operation || "none"],
-      ["Connected", status.connected ? "yes" : "no"],
-      ["Ready", status.init_ready ? "yes" : "no"],
-      ["Busy", status.busy ? "yes" : "no"],
-      ["Error code", String(status.error_code ?? 0)]
+      [t("metricProtocol"), translateProtocolState(status.protocol_state || "unknown")],
+      [t("metricOperation"), translateOperation(status.current_operation || "none")],
+      [t("metricConnected"), status.connected ? t("yes") : t("no")],
+      [t("metricReady"), status.init_ready ? t("yes") : t("no")],
+      [t("metricBusy"), status.busy ? t("yes") : t("no")],
+      [t("metricErrorCode"), String(status.error_code ?? 0)]
     ];
 
     els.statusGrid.innerHTML = metrics.map(([label, value]) => `
@@ -144,47 +540,86 @@
     const initStrings = Array.isArray(status.init_strings) ? status.init_strings : [];
     els.initStrings.innerHTML = initStrings.length
       ? initStrings.map((text) => `<div class="list-item mono">${escapeHtml(text)}</div>`).join("")
-      : '<div class="list-item small">Init strings become available only after ECU ready state.</div>';
+      : `<div class="list-item small">${escapeHtml(t("initStringsPending"))}</div>`;
 
     els.stateSummary.className = `message ${messageTone(status.protocol_state)}`;
-    els.stateSummary.textContent =
-      `state=${status.protocol_state} busy=${status.busy} ready=${status.init_ready} ` +
-      `op=${status.current_operation} err=${status.error_code}`;
+    els.stateSummary.textContent = [
+      t("statusLinePrimary", { state: translateProtocolState(status.protocol_state) }),
+      t("statusLineSecondary", {
+        connected: status.connected ? t("yes") : t("no"),
+        ready: status.init_ready ? t("yes") : t("no"),
+        busy: status.busy ? t("yes") : t("no")
+      }),
+      t("statusLineTertiary", {
+        operation: translateOperation(status.current_operation),
+        error: status.error_code ?? 0
+      })
+    ].join("\n");
 
-    els.liveBadge.textContent = status.connected
-      ? `ECU ${status.protocol_state.toUpperCase()}`
-      : `ECU ${status.protocol_state.toUpperCase()}`;
+    els.liveBadge.textContent = `ECU ${translateProtocolState(status.protocol_state).toUpperCase()}`;
 
     els.pollInfo.textContent = describePolling(status);
   }
 
   function renderCacheSummary() {
     const pieces = [];
-    if (state.status) pieces.push(`status:${state.status.protocol_state}`);
-    if (state.sensors && state.sensors.sensors) pieces.push(`sensors:${state.sensors.sensors.length}`);
-    if (state.errors && state.errors.errors) pieces.push(`dtc:${state.errors.errors.length}`);
-    if (state.health && state.health.health) pieces.push("health:1");
-    if (state.technical) pieces.push("technical:1");
+    if (state.status) {
+      pieces.push(`${t("cacheStatus")}:${translateProtocolState(state.status.protocol_state)}`);
+    }
+    if (state.sensors && state.sensors.sensors) pieces.push(`${t("cacheSensors")}:${state.sensors.sensors.length}`);
+    if (state.errors && state.errors.errors) pieces.push(`${t("cacheDtc")}:${state.errors.errors.length}`);
+    if (state.health && state.health.health) pieces.push(`${t("cacheHealth")}:1`);
+    if (state.technical) pieces.push(`${t("cacheTechnical")}:1`);
 
     if (!pieces.length) {
-      els.cacheBadge.textContent = "Cache empty";
-      els.cacheSummary.textContent = "Nothing stored locally.";
+      els.cacheBadge.textContent = t("cacheEmpty");
+      els.cacheSummary.textContent = t("nothingStoredYet");
       return;
     }
 
     els.cacheBadge.textContent = `Cache ${pieces.join(" | ")}`;
     els.cacheSummary.textContent =
-      "Stored locally: " + pieces.join(", ") +
-      ". Cached values are never replayed as ECU commands.";
+      `${t("cacheStoredPrefix")} ${pieces.join(", ")}. ${t("cacheStoredSuffix")}`;
+  }
+
+  function renderNetworkBadge() {
+    const meta = state.status && state.status.meta ? state.status.meta : null;
+
+    if (isRebootPending()) {
+      els.netBadge.textContent = t("linkRebooting");
+      return;
+    }
+
+    if (state.requestInFlight && state.activeRequestLabel) {
+      els.netBadge.textContent = t("linkBusy", { operation: state.activeRequestLabel });
+      return;
+    }
+
+    if (state.backendReachable && state.lastRoundTripMs !== null) {
+      if (meta && typeof meta.last_packet_age_ms === "number") {
+        els.netBadge.textContent = t("linkOnlineFresh", {
+          ms: state.lastRoundTripMs,
+          age: formatElapsedMs(meta.last_packet_age_ms)
+        });
+      } else {
+        els.netBadge.textContent = t("linkOnline", {
+          ms: state.lastRoundTripMs,
+          age: formatAge(state.lastSuccessAt)
+        });
+      }
+      return;
+    }
+
+    els.netBadge.textContent = state.lastSuccessAt ? t("linkOffline") : t("linkIdle");
   }
 
   function renderTechnicalMode() {
     els.technicalToggleBtn.textContent = state.technicalMode
-      ? "Technical mode on"
-      : "Technical mode off";
-    byId("tab-technical").querySelector(".small").textContent = state.technicalMode
-      ? "Technical mode enabled. Raw memory and catalog are visible here."
-      : "Technical mode disabled. This tab stays for explicit technical access only.";
+      ? t("technicalModeOn")
+      : t("technicalModeOff");
+    els.technicalSummary.textContent = state.technicalMode
+      ? t("technicalEnabledDetail")
+      : t("technicalDisabledDetail");
   }
 
   function renderCachedSections() {
@@ -197,18 +632,24 @@
   function renderSensors(payload) {
     const sensors = payload && Array.isArray(payload.sensors) ? payload.sensors : [];
     if (!sensors.length) {
-      els.sensorList.innerHTML = '<div class="list-item small">No live sensor snapshot loaded yet.</div>';
+      els.sensorList.innerHTML = `<div class="list-item small">${escapeHtml(t("noLiveSensorSnapshot"))}</div>`;
       return;
     }
 
     els.sensorList.innerHTML = sensors.map((sensor) => `
       <div class="table-row">
         <div>
-          <strong>${escapeHtml(sensor.name || sensor.key || `Sensor ${sensor.id}`)}</strong>
+          <strong>${escapeHtml(sensor.name || sensor.key || `${t("sensorLabel")} ${sensor.id}`)}</strong>
           <div class="small">id=${sensor.id} sub=${sensor.subcommand} slot=${sensor.slot}</div>
         </div>
-        <div class="mono">${escapeHtml(String(sensor.raw))}</div>
-        <div>${sensor.value !== undefined ? escapeHtml(String(sensor.value)) : "-"} ${escapeHtml(sensor.unit || "")}</div>
+        <div>
+          <div class="mobile-label">${escapeHtml(t("sensorColumnRaw"))}</div>
+          <div class="mono">${escapeHtml(String(sensor.raw))}</div>
+        </div>
+        <div>
+          <div class="mobile-label">${escapeHtml(t("sensorColumnValue"))}</div>
+          <div>${sensor.value !== undefined ? escapeHtml(String(sensor.value)) : "-"} ${escapeHtml(sensor.unit || "")}</div>
+        </div>
       </div>
     `).join("");
   }
@@ -216,14 +657,14 @@
   function renderErrors(payload) {
     const errors = payload && Array.isArray(payload.errors) ? payload.errors : [];
     if (!errors.length) {
-      els.errorList.innerHTML = '<div class="list-item small">No DTC snapshot loaded yet.</div>';
+      els.errorList.innerHTML = `<div class="list-item small">${escapeHtml(t("noDtcSnapshot"))}</div>`;
       return;
     }
 
     els.errorList.innerHTML = errors.map((entry) => `
       <div class="list-item">
-        <div><strong class="${entry.present ? "err" : "warn"}">${entry.present ? "Present" : "Stored"}</strong></div>
-        <div>${escapeHtml(entry.description || "Unknown DTC")}</div>
+        <div><strong class="${entry.present ? "err" : "warn"}">${entry.present ? t("dtcPresent") : t("dtcStored")}</strong></div>
+        <div>${escapeHtml(entry.description || t("unknownDtc"))}</div>
         <div class="small mono">frame=${entry.packet ? entry.packet.frame : "?"}</div>
       </div>
     `).join("");
@@ -232,7 +673,7 @@
   function renderHealth(payload) {
     const health = payload && payload.health ? payload.health : null;
     if (!health) {
-      els.healthList.innerHTML = '<div class="list-item small">No health snapshot loaded yet.</div>';
+      els.healthList.innerHTML = `<div class="list-item small">${escapeHtml(t("noHealthSnapshot"))}</div>`;
       return;
     }
 
@@ -247,15 +688,15 @@
 
   function renderTechnical(payload) {
     if (!payload) {
-      els.technicalList.innerHTML = '<div class="list-item small">No technical data loaded yet.</div>';
+      els.technicalList.innerHTML = `<div class="list-item small">${escapeHtml(t("noTechnicalData"))}</div>`;
       return;
     }
 
     if (payload.sensors) {
       els.technicalList.innerHTML = `
         <div class="list-item">
-          <strong>Catalog</strong>
-          <div class="small">entries=${payload.sensors.length}</div>
+          <strong>${escapeHtml(t("catalog"))}</strong>
+          <div class="small">${escapeHtml(t("entries"))}=${payload.sensors.length}</div>
           <div class="mono">${escapeHtml(payload.sensors.slice(0, 10).map((s) => s.key).join(", "))}</div>
         </div>
       `;
@@ -265,7 +706,7 @@
     if (payload.packets) {
       els.technicalList.innerHTML = payload.packets.map((packet, index) => `
         <div class="list-item">
-          <strong>Packet ${index + 1}</strong>
+          <strong>${escapeHtml(t("packet"))} ${index + 1}</strong>
           <div class="mono">${escapeHtml(JSON.stringify(packet))}</div>
         </div>
       `).join("");
@@ -274,33 +715,53 @@
 
   function syncControls() {
     const status = state.status || {};
-    const ready = status.protocol_state === "ready" && status.init_ready && !status.busy;
-    const threadStarted = Boolean(status.thread_started);
+    const ready = Boolean(
+      status.meta && typeof status.meta.ready_for_commands === "boolean"
+        ? status.meta.ready_for_commands
+        : status.protocol_state === "ready" && status.init_ready && !status.busy
+    );
     const technicalEnabled = state.technicalMode;
+    const rebootPending = isRebootPending();
+    const connectLocked = state.requestInFlight ||
+      rebootPending ||
+      status.protocol_state === "handshaking" ||
+      status.busy ||
+      status.connected;
 
-    els.connectBtn.disabled = state.requestInFlight || threadStarted;
-    els.refreshBtn.disabled = state.requestInFlight;
-    els.loadSensorsBtn.disabled = state.requestInFlight || !ready;
-    els.readErrorsBtn.disabled = state.requestInFlight || !ready;
-    els.clearErrorsBtn.disabled = state.requestInFlight || !ready;
-    els.loadHealthBtn.disabled = state.requestInFlight;
-    els.readMemoryBtn.disabled = state.requestInFlight || !ready || !technicalEnabled;
-    els.loadCatalogBtn.disabled = state.requestInFlight || !technicalEnabled;
+    els.connectBtn.disabled = connectLocked;
+    els.rebootBtn.disabled = state.requestInFlight || rebootPending;
+    els.refreshBtn.disabled = state.requestInFlight || rebootPending;
+    els.technicalToggleBtn.disabled = state.requestInFlight || rebootPending;
+    els.languageSelect.disabled = state.requestInFlight || rebootPending;
+    els.loadSensorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
+    els.readErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
+    els.clearErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
+    els.loadHealthBtn.disabled = state.requestInFlight || rebootPending;
+    els.readMemoryBtn.disabled = state.requestInFlight || rebootPending || !ready || !technicalEnabled;
+    els.loadCatalogBtn.disabled = state.requestInFlight || rebootPending || !technicalEnabled;
   }
 
   async function pollStatus(forceMessage) {
     await runAction("/api/status", {}, (payload) => {
       onStatusResponse(payload);
       if (forceMessage) {
-        setMessage("Status refreshed from ESP32.", "ok");
+        setMessage(t("statusRefreshed"), "ok");
       }
-    }, { silentBusy: true });
+    }, {
+      silentBusy: true,
+      silentStartMessage: true,
+      silentNetworkError: Date.now() < state.rebootPendingUntil
+    });
     schedulePolling();
   }
 
   function onStatusResponse(payload) {
+    state.rebootPendingUntil = 0;
+    if (typeof payload.technical_mode_enabled === "boolean") {
+      state.technicalMode = payload.technical_mode_enabled;
+    }
     state.status = payload;
-    writeJson(storageKeys.lastStatus, payload);
+    writeCache(storageKeys.lastStatus, payload);
     renderAll();
   }
 
@@ -311,7 +772,10 @@
       return;
     }
 
-    const delay = status.protocol_state === "ready" ? 2500 : 1500;
+    let delay = status.protocol_state === "ready" ? 2500 : 1500;
+    if (Date.now() < state.rebootPendingUntil) {
+      delay = Math.max(1000, state.rebootPendingUntil - Date.now());
+    }
     state.pollTimer = setTimeout(async () => {
       await pollStatus(false);
 
@@ -330,38 +794,43 @@
     const table = encodeURIComponent(els.tableSelect.value);
     await runAction(`/api/sensors/collection?table=${table}`, {}, (payload) => {
       state.sensors = payload;
-      writeJson(storageKeys.lastSensors, payload);
+      writeCache(storageKeys.lastSensors, payload);
       renderSensors(payload);
       renderCacheSummary();
-      if (!silent) setMessage("Live sensor snapshot updated.", "ok");
-    });
+      if (!silent) setMessage(t("liveSensorUpdated"), "ok");
+    }, { silentStartMessage: Boolean(silent) });
   }
 
   async function loadErrors() {
     await runAction("/api/errors", {}, (payload) => {
       state.errors = payload;
-      writeJson(storageKeys.lastErrors, payload);
+      writeCache(storageKeys.lastErrors, payload);
       renderErrors(payload);
       renderCacheSummary();
-      setMessage("DTC snapshot updated.", "ok");
+      setMessage(t("dtcUpdated"), "ok");
     });
   }
 
   async function clearErrors() {
-    await runAction("/api/errors/clear", { method: "POST" }, async (payload) => {
-      setMessage(`Clear DTC response frame=${payload.packet ? payload.packet.frame : "?"}.`, "ok");
-      await loadErrors();
+    const payload = await runAction("/api/errors/clear", { method: "POST" }, (payload) => {
+      setMessage(t("clearDtcResponse", { frame: payload.packet ? payload.packet.frame : "?" }), "ok");
     });
+    if (payload) {
+      await loadErrors();
+    }
   }
 
   async function loadHealth(silent) {
     await runAction("/api/health", {}, (payload) => {
       state.health = payload;
-      writeJson(storageKeys.lastHealth, payload);
+      writeCache(storageKeys.lastHealth, payload);
       renderHealth(payload);
       renderCacheSummary();
-      if (!silent) setMessage("Health snapshot updated.", "ok");
-    }, { silentBusy: true });
+      if (!silent) setMessage(t("healthUpdated"), "ok");
+    }, {
+      silentBusy: true,
+      silentStartMessage: Boolean(silent)
+    });
   }
 
   async function loadMemory() {
@@ -370,53 +839,123 @@
     const len = encodeURIComponent(els.memLen.value.trim());
     await runAction(`/api/memory/read?hi=${hi}&lo=${lo}&len=${len}`, {}, (payload) => {
       state.technical = payload;
-      writeJson(storageKeys.lastTechnical, payload);
+      writeCache(storageKeys.lastTechnical, payload);
       renderTechnical(payload);
       renderCacheSummary();
-      setMessage("Raw memory snapshot updated.", "ok");
+      setMessage(t("rawMemoryUpdated"), "ok");
     });
   }
 
   async function loadCatalog() {
     await runAction("/api/sensors/catalog", {}, (payload) => {
       state.technical = payload;
-      writeJson(storageKeys.lastTechnical, payload);
+      writeCache(storageKeys.lastTechnical, payload);
       renderTechnical(payload);
       renderCacheSummary();
-      setMessage("Catalog loaded.", "ok");
-    }, { silentBusy: true });
+      setMessage(t("catalogLoaded"), "ok");
+    }, {
+      silentBusy: true,
+      silentStartMessage: true
+    });
+  }
+
+  async function toggleTechnicalMode() {
+    const desired = !state.technicalMode;
+    const enabled = encodeURIComponent(desired ? "1" : "0");
+    await runAction(`/api/technical-mode?enabled=${enabled}`, { method: "POST" }, (payload) => {
+      const backendEnabled = Boolean(payload.technical_mode_enabled);
+      state.technicalMode = backendEnabled;
+      renderAll();
+      setMessage(
+        backendEnabled
+          ? t("technicalEnabled")
+          : t("technicalDisabled"),
+        "ok"
+      );
+    });
+  }
+
+  async function rebootEsp32() {
+    if (!window.confirm(t("rebootConfirm"))) {
+      return;
+    }
+
+    const payload = await runAction("/api/reboot", { method: "POST" }, () => {
+      setMessage(t("rebootRequested"), "ok");
+    }, {
+      silentBusy: true,
+      silentStartMessage: true
+    });
+
+    if (!payload) {
+      return;
+    }
+
+    state.rebootPendingUntil = Date.now() + 8000;
+    syncControls();
+    clearTimeout(state.pollTimer);
+    schedulePolling();
   }
 
   async function runAction(url, options, onSuccess, settings) {
     const cfg = settings || {};
     if (state.requestInFlight) {
       if (!cfg.silentBusy) {
-        setMessage("Browser request suppressed: another operation is already in flight.", "err");
+        setMessage(t("browserRequestSuppressed"), "err");
       }
-      return;
+      return null;
     }
 
     state.requestInFlight = true;
+    state.lastRequestStartedAt = Date.now();
+    state.activeRequestLabel = describeRequest(url);
+    renderNetworkBadge();
+    if (!cfg.silentStartMessage) {
+      setMessage(t("requestStarted", { operation: state.activeRequestLabel }));
+    }
     syncControls();
 
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(buildApiUrl(url), options);
       const payload = await response.json();
+      const elapsedMs = Math.max(1, Date.now() - state.lastRequestStartedAt);
 
       if (!response.ok || payload.ok === false) {
+        state.backendReachable = true;
+        state.lastRoundTripMs = elapsedMs;
+        state.lastSuccessAt = Date.now();
+        renderNetworkBadge();
         handleErrorPayload(payload);
-        return;
+        return null;
       }
+
+      state.backendReachable = true;
+      state.lastRoundTripMs = elapsedMs;
+      state.lastSuccessAt = Date.now();
 
       if (payload.protocol_state) {
         onStatusResponse(payload);
       }
 
       onSuccess(payload);
+      if (cfg.successMessageKey) {
+        setMessage(t(cfg.successMessageKey), "ok");
+      } else if (cfg.showFinishedMessage) {
+        setMessage(t("requestFinished", { operation: state.activeRequestLabel, ms: elapsedMs }), "ok");
+      }
+      renderNetworkBadge();
+      return payload;
     } catch (error) {
-      setMessage(`Network error: ${error.message}`, "err");
+      state.backendReachable = false;
+      renderNetworkBadge();
+      if (!cfg.silentNetworkError) {
+        setMessage(t("networkError", { message: error.message }), "err");
+      }
+      return null;
     } finally {
       state.requestInFlight = false;
+      state.activeRequestLabel = "";
+      renderNetworkBadge();
       syncControls();
       schedulePolling();
     }
@@ -425,12 +964,12 @@
   function handleErrorPayload(payload) {
     if (payload && payload.protocol_state) {
       state.status = payload;
-      writeJson(storageKeys.lastStatus, payload);
+      writeCache(storageKeys.lastStatus, payload);
       renderAll();
     }
 
     const code = payload && payload.error_code ? payload.error_code : "request_failed";
-    const message = payload && payload.message ? payload.message : "Request failed.";
+    const message = payload && payload.message ? payload.message : t("requestFailed");
     setMessage(`${code}: ${message}`, "err");
   }
 
@@ -440,23 +979,88 @@
   }
 
   function describePolling(status) {
+    if (isRebootPending()) {
+      return t("rebootPendingPoll");
+    }
     if (!status || !status.protocol_state) {
-      return "Polling status only";
+      return t("pollingStatusOnly");
     }
     if (status.protocol_state === "handshaking") {
-      return "Handshake active: polling status only";
+      return t("handshakeActive");
     }
     if (status.protocol_state === "busy") {
-      return `Busy with ${status.current_operation}`;
+      return t("busyWith", { operation: translateOperation(status.current_operation) });
     }
     if (status.protocol_state === "ready") {
       return state.activeTab === "live"
-        ? "Ready: polling status and live sensors"
+        ? t("readyPollingLive")
         : state.activeTab === "health"
-          ? "Ready: polling status and health"
-          : "Ready: polling status only";
+          ? t("readyPollingHealth")
+          : t("readyPollingOnly");
     }
-    return `Polling status while state=${status.protocol_state}`;
+    if (status.protocol_state === "disconnected") {
+      return t("disconnectedReadyToConnect");
+    }
+    return t("pollingWhileState", { state: translateProtocolState(status.protocol_state) });
+  }
+
+  function buildApiUrl(url) {
+    if (!url.startsWith("/api/")) {
+      return url;
+    }
+
+    const separator = url.indexOf("?") >= 0 ? "&" : "?";
+    return `${url}${separator}lang=${encodeURIComponent(state.locale)}`;
+  }
+
+  async function onLocaleChange() {
+    const nextLocale = normalizeLocale(els.languageSelect.value);
+    if (nextLocale === state.locale) {
+      return;
+    }
+
+    state.locale = nextLocale;
+    localStorage.setItem(storageKeys.locale, state.locale);
+    state.status = readCache(storageKeys.lastStatus, state.locale);
+    state.sensors = readCache(storageKeys.lastSensors, state.locale);
+    state.errors = readCache(storageKeys.lastErrors, state.locale);
+    state.health = readCache(storageKeys.lastHealth, state.locale);
+    state.technical = readCache(storageKeys.lastTechnical, state.locale);
+    renderAll();
+
+    await pollStatus(true);
+    await refreshLocalizedActiveTab();
+  }
+
+  async function refreshLocalizedActiveTab() {
+    const status = state.status || {};
+    const ready = status.protocol_state === "ready" && status.init_ready && !status.busy;
+
+    if (state.activeTab === "live" && ready) {
+      await loadSensors(true);
+      return;
+    }
+
+    if (state.activeTab === "dtc" && ready) {
+      await loadErrors();
+      return;
+    }
+
+    if (state.activeTab === "health") {
+      await loadHealth(true);
+      return;
+    }
+
+    if (state.activeTab === "technical" && state.technicalMode) {
+      if (state.technical && state.technical.sensors) {
+        await loadCatalog();
+        return;
+      }
+
+      if (state.technical && state.technical.packets && ready) {
+        await loadMemory();
+      }
+    }
   }
 
   function messageTone(protocolState) {
@@ -464,6 +1068,56 @@
     if (protocolState === "busy" || protocolState === "handshaking") return "warn";
     if (protocolState === "error") return "err";
     return "";
+  }
+
+  function isRebootPending() {
+    return Date.now() < state.rebootPendingUntil;
+  }
+
+  function describeRequest(url) {
+    if (url.startsWith("/api/status")) return t("sessionStatus");
+    if (url.startsWith("/api/connect")) return t("connectEcu");
+    if (url.startsWith("/api/reboot")) return t("rebootEsp32");
+    if (url.startsWith("/api/sensors/collection")) return t("readLiveSensors");
+    if (url.startsWith("/api/errors/clear")) return t("clearDtc");
+    if (url.startsWith("/api/errors")) return t("readDtc");
+    if (url.startsWith("/api/health")) return t("refreshHealth");
+    if (url.startsWith("/api/memory/read")) return t("readMemory");
+    if (url.startsWith("/api/sensors/catalog")) return t("loadSensorCatalog");
+    if (url.startsWith("/api/technical-mode")) {
+      return state.technicalMode ? t("technicalModeOff") : t("technicalModeOn");
+    }
+    return t("unknown");
+  }
+
+  function formatAge(timestamp) {
+    if (!timestamp) {
+      return t("ageNow");
+    }
+
+    const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (seconds < 2) {
+      return t("ageNow");
+    }
+    if (seconds < 60) {
+      return t("ageSeconds", { count: seconds });
+    }
+    return t("ageMinutes", { count: Math.floor(seconds / 60) });
+  }
+
+  function formatElapsedMs(durationMs) {
+    if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
+      return t("unknown");
+    }
+
+    const seconds = Math.floor(durationMs / 1000);
+    if (seconds < 2) {
+      return t("ageNow");
+    }
+    if (seconds < 60) {
+      return t("ageSeconds", { count: seconds });
+    }
+    return t("ageMinutes", { count: Math.floor(seconds / 60) });
   }
 
   function escapeHtml(text) {

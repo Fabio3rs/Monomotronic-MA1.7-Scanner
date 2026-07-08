@@ -564,14 +564,17 @@ uint8_t ESP32Monomotronic::determineCollectionTable() {
 }
 
 const char *ESP32Monomotronic::errorPacketToString(const ECUmmpacket &p,
-                                                   bool &present) {
+                                                   bool &present,
+                                                   TextLocale locale) {
     present = false;
     if (p.frametypeid != ECU_ERROR_DATA_CODE) {
-        return "Not an error packet";
+        return locale == TextLocale::PtBr ? "Nao e um pacote de erro"
+                                          : "Not an error packet";
     }
 
     if (p.data_length < 3) {
-        return "Invalid error packet";
+        return locale == TextLocale::PtBr ? "Pacote de erro invalido"
+                                          : "Invalid error packet";
     }
 
     // Source: http://www.fiat-tipo.ru/fpost8823.html
@@ -608,7 +611,8 @@ const char *ESP32Monomotronic::errorPacketToString(const ECUmmpacket &p,
         return (*it).second;
     }
 
-    return "Unknown error code";
+    return locale == TextLocale::PtBr ? "Codigo de erro desconhecido"
+                                      : "Unknown error code";
 }
 
 ECUHealthSnapshot ESP32Monomotronic::getHealthSnapshot() const {
@@ -635,6 +639,9 @@ void ESP32Monomotronic::commThread(void *vpmm) {
     mm.initPacketsOk_ = false;
     mm.ECUThreadCanAcceptCommands_ = false;
     mm.stopRequested_ = false;
+
+    Serial2.begin(mm.config_.session_baud, SERIAL_8N1);
+    Serial2.flush();
 
     while (!mm.stopRequested_) {
         mm.taskState_ = 0;
@@ -824,19 +831,25 @@ void ESP32Monomotronic::commThread(void *vpmm) {
 }
 
 bool ESP32Monomotronic::init() {
-    if (!inited_) {
-        inited_ = true;
-        taskState_ = 0;
-        ECUPacketCounter_ = 0;
-        resetInitPackets();
-        finishOperation();
-        Serial2.flush();
-
-        xTaskCreatePinnedToCore(commThread, "ECUComm", 12000, this, 32, &Task1_,
-                                1);
-        return true;
+    if (inited_) {
+        return false;
     }
-    return false;
+
+    taskState_ = 0;
+    ECUPacketCounter_ = 0;
+    resetInitPackets();
+    finishOperation();
+    Task1_ = nullptr;
+
+    const BaseType_t created = xTaskCreatePinnedToCore(
+        commThread, "ECUComm", 12000, this, 32, &Task1_, 1);
+    if (created != pdPASS || Task1_ == nullptr) {
+        ECUThreadErr_ = ERR_TASK_CREATE;
+        return false;
+    }
+
+    inited_ = true;
+    return true;
 }
 
 ESP32Monomotronic::ESP32Monomotronic() {
