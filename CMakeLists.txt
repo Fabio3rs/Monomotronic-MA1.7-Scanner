@@ -137,6 +137,8 @@ if(BUILD_TESTS)
     enable_testing()
 
     add_executable(ecuserial_tests
+        tests/test_ESP32OptionalFallback.cpp
+        tests/test_ESP32OptionalStd.cpp
         tests/test_ECULinkConfig.cpp
         tests/test_ECUSerialCLI.cpp
     )

@@ -1,5 +1,5 @@
 /*
-Local optional implementation for Arduino/ESP32 builds.
+Local optional adapter for Arduino/ESP32 builds.
 
 MIT License
 
@@ -26,45 +26,170 @@ SOFTWARE.
 #ifndef ESP32_OPTIONAL_H
 #define ESP32_OPTIONAL_H
 
+#include <cassert>
+#include <new>
+#include <type_traits>
 #include <utility>
 
-class nulloptional {};
+#if !defined(ESP32_OPTIONAL_FORCE_FALLBACK) && defined(__has_include)
+#if __has_include(<optional>)
+#include <optional>
+#if defined(__cpp_lib_optional) && (__cpp_lib_optional >= 201606L)
+#define ESP32_OPTIONAL_USE_STD 1
+#endif
+#endif
+#endif
 
-static const nulloptional nullopt{};
+#ifdef ESP32_OPTIONAL_USE_STD
+
+using nulloptional = std::nullopt_t;
+constexpr nulloptional nullopt = std::nullopt;
+
+template <class T> using optional = std::optional<T>;
+
+#else
+
+struct nulloptional {
+    explicit constexpr nulloptional(int) {}
+};
+
+constexpr nulloptional nullopt{0};
 
 template <class T> class optional {
-    T val_{};
+    static_assert(!std::is_reference<T>::value,
+                  "optional<T&> is not supported");
+
+    alignas(T) unsigned char storage_[sizeof(T)];
     bool hasv_{false};
+
+    T *ptr() { return reinterpret_cast<T *>(storage_); }
+    const T *ptr() const { return reinterpret_cast<const T *>(storage_); }
+
+    template <class... Args> void construct(Args &&...args) {
+        new (storage_) T(std::forward<Args>(args)...);
+        hasv_ = true;
+    }
 
   public:
     optional() = default;
-    optional(const nulloptional &) : hasv_(false) {}
-    optional(const T &v) : val_(v), hasv_(true) {}
-    optional(T &&v) : val_(std::move(v)), hasv_(true) {}
-    optional(const optional &) = default;
-    optional(optional &&) = default;
-    optional &operator=(const optional &) = default;
-    optional &operator=(optional &&) = default;
+    optional(const nulloptional &) {}
+
+    optional(const T &v) { construct(v); }
+    optional(T &&v) { construct(std::move(v)); }
+
+    optional(const optional &other) {
+        if (other.hasv_) {
+            construct(*other.ptr());
+        }
+    }
+
+    optional(optional &&other) {
+        if (other.hasv_) {
+            construct(std::move(*other.ptr()));
+        }
+    }
+
+    ~optional() { reset(); }
+
+    optional &operator=(const nulloptional &) {
+        reset();
+        return *this;
+    }
+
+    optional &operator=(const optional &other) {
+        if (this == &other) {
+            return *this;
+        }
+
+        if (other.hasv_) {
+            if (hasv_) {
+                *ptr() = *other.ptr();
+            } else {
+                construct(*other.ptr());
+            }
+        } else {
+            reset();
+        }
+
+        return *this;
+    }
+
+    optional &operator=(optional &&other) {
+        if (this == &other) {
+            return *this;
+        }
+
+        if (other.hasv_) {
+            if (hasv_) {
+                *ptr() = std::move(*other.ptr());
+            } else {
+                construct(std::move(*other.ptr()));
+            }
+        } else {
+            reset();
+        }
+
+        return *this;
+    }
 
     optional &operator=(const T &v) {
-        val_ = v;
-        hasv_ = true;
+        if (hasv_) {
+            *ptr() = v;
+        } else {
+            construct(v);
+        }
         return *this;
     }
 
     optional &operator=(T &&v) {
-        val_ = std::move(v);
-        hasv_ = true;
+        if (hasv_) {
+            *ptr() = std::move(v);
+        } else {
+            construct(std::move(v));
+        }
         return *this;
     }
 
     bool has_value() const { return hasv_; }
     explicit operator bool() const { return hasv_; }
 
-    T &value() { return val_; }
-    const T &value() const { return val_; }
+    T &value() {
+        assert(hasv_);
+        return *ptr();
+    }
 
-    void reset() { hasv_ = false; }
+    const T &value() const {
+        assert(hasv_);
+        return *ptr();
+    }
+
+    T &operator*() { return value(); }
+    const T &operator*() const { return value(); }
+
+    T *operator->() { return &value(); }
+    const T *operator->() const { return &value(); }
+
+    template <class... Args> T &emplace(Args &&...args) {
+        reset();
+        construct(std::forward<Args>(args)...);
+        return *ptr();
+    }
+
+    template <class U> T value_or(U &&default_value) const {
+        if (hasv_) {
+            return *ptr();
+        }
+        return static_cast<T>(std::forward<U>(default_value));
+    }
+
+    void reset() {
+        if (hasv_) {
+            ptr()->~T();
+            hasv_ = false;
+        }
+    }
 };
+
+#endif
 
 #endif
