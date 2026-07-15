@@ -17,7 +17,7 @@ jobs:
   build-esp32:
     runs-on: ubuntu-latest
     env:
-      PLATFORMIO_CORE_DIR: ${{ runner.temp }}/piohome
+      PLATFORMIO_CORE_DIR: /tmp/piohome
 
     steps:
       - name: Checkout
