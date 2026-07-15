@@ -26,11 +26,32 @@ SOFTWARE.
 
 #include "ESP32Monomotronic.h"
 #include "SensorCatalog.h"
-#include <map>
-#include <string>
 
 namespace {
 constexpr uint32_t kIdleYieldMs = 1;
+
+struct ErrorCodeEntry {
+    int code;
+    const char *description;
+};
+
+constexpr std::array<ErrorCodeEntry, 11> kErrorCodeEntries{{
+    {0x1A01, "Atuador de marcha lenta - Sinal ruim? Motor com do "
+             "atuador de passo com defeito? Travado?"},
+    {0x0302, "Sensor de rotacao do virabrequim | Sem sinal/motor desligado"},
+    {0x0402, "Interruptor do atuador de marcha lenta | Curto ao GND ou VCC"},
+    {0x0602, "Erro TPS"},
+    {0x0A02, "Sensor de temperatura do liquido de arrefecimento"},
+    {0x0B02, "Sensor de temperatura do ar circuito aberto ou curto para GND "
+             "ou VCC"},
+    {0x0D02, "Sonda lambda | problema sinal"},
+    {0x3102, "Erro de correcao de mistura"},
+    {0x0303, "Sensor de rotacao do virabrequim | Erro de sincronismo do "
+             "sensor de posicao do virabrequim"},
+    {0x3A46, "Imobilizador | Ativo"},
+    {0xFFFF, "Erro de ECU | Defeito no computador ou selecionado "
+             "incorretamente OU problema de conexao"},
+}};
 
 uint32_t DeadlineFromNow(uint32_t timeout_ms) { return millis() + timeout_ms; }
 
@@ -142,8 +163,9 @@ const char *ESP32Monomotronic::getProtocolStateName() const {
         return "ready";
     }
 
-    if (inited_ && (taskState_.load(std::memory_order_relaxed) == 1 ||
-                    taskState_.load(std::memory_order_relaxed) == 2)) {
+    if (inited_.load(std::memory_order_acquire) &&
+        (taskState_.load(std::memory_order_relaxed) == 1 ||
+         taskState_.load(std::memory_order_relaxed) == 2)) {
         return "handshaking";
     }
 
@@ -164,7 +186,7 @@ ECUStatusSnapshot ESP32Monomotronic::getStatusSnapshot() const {
     snapshot.busy = isBusy();
     snapshot.init_ready = initPacketsOk_.load(std::memory_order_relaxed);
     snapshot.echo_byte_present = baudEchoOK_.load(std::memory_order_relaxed);
-    snapshot.thread_started = inited_;
+    snapshot.thread_started = inited_.load(std::memory_order_acquire);
     snapshot.task_state = taskState_.load(std::memory_order_relaxed);
     snapshot.freertos_state = static_cast<int>(getThreadState());
     snapshot.error_code = ECUThreadErr_.load(std::memory_order_relaxed);
@@ -577,26 +599,6 @@ const char *ESP32Monomotronic::errorPacketToString(const ECUmmpacket &p,
                                           : "Invalid error packet";
     }
 
-    // Source: http://www.fiat-tipo.ru/fpost8823.html
-    static const std::map<int, const char *> errList = {
-        {0x1A01, "Atuador de marcha lenta - Sinal ruim? Motor com do "
-                 "atuador de passo com defeito? Travado?"},
-        {0x0302, "Sensor de rotacao do virabrequim | Sem sinal/motor "
-                 "desligado"},
-        {0x0402, "Interruptor do atuador de marcha lenta | Curto ao "
-                 "GND ou VCC"},
-        {0x0602, "Erro TPS"},
-        {0x0A02, "Sensor de temperatura do liquido de arrefecimento"},
-        {0x0B02, "Sensor de temperatura do ar circuito aberto ou curto "
-                 "para GND ou VCC"},
-        {0x0D02, "Sonda lambda | problema sinal"},
-        {0x3102, "Erro de correcao de mistura"},
-        {0x0303, "Sensor de rotacao do virabrequim | Erro de "
-                 "sincronismo do sensor de posicao do virabrequim"},
-        {0x3A46, "Imobilizador | Ativo"},
-        {0xFFFF, "Erro de ECU | Defeito no computador ou selecionado "
-                 "incorretamente OU problema de conexao"}};
-
     /*
     1E - Error present?
     9E - Error intermitent?
@@ -605,10 +607,10 @@ const char *ESP32Monomotronic::errorPacketToString(const ECUmmpacket &p,
         static_cast<int>(p.data[0]) | (static_cast<int>(p.data[1]) << 8);
     present = (p.data[2] == 0x1E || p.data[2] == 0x03);
 
-    auto it = errList.find(errcode);
-
-    if (it != errList.end()) {
-        return (*it).second;
+    for (const ErrorCodeEntry &entry : kErrorCodeEntries) {
+        if (entry.code == errcode) {
+            return entry.description;
+        }
     }
 
     return locale == TextLocale::PtBr ? "Codigo de erro desconhecido"
@@ -827,11 +829,13 @@ void ESP32Monomotronic::commThread(void *vpmm) {
 
     mm.ECUThreadCanAcceptCommands_ = false;
     mm.finishOperation();
+    mm.inited_.store(false, std::memory_order_release);
     vTaskDelete(nullptr);
 }
 
 bool ESP32Monomotronic::init() {
-    if (inited_) {
+    std::lock_guard<std::mutex> lock(initMutex_);
+    if (inited_.load(std::memory_order_acquire)) {
         return false;
     }
 
@@ -848,7 +852,7 @@ bool ESP32Monomotronic::init() {
         return false;
     }
 
-    inited_ = true;
+    inited_.store(true, std::memory_order_release);
     return true;
 }
 

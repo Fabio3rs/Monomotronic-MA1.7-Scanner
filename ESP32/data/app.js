@@ -125,7 +125,32 @@
       operationReadCollection: "read collection",
       operationClearErrors: "clear errors",
       operationDetermineCollectionTable: "determine collection table",
-      operationNone: "none"
+      operationNone: "none",
+      dataFresh: "Live data",
+      dataCached: "Cached data",
+      dataSession: "Session data",
+      dataStale: "Stale cache",
+      dataEmpty: "No snapshot",
+      sectionLiveMetaFresh: "Live sensors updated {age}. Auto-refresh active.",
+      sectionLiveMetaCached: "Showing cached live sensors from {age}.",
+      sectionLiveMetaStale: "Showing stale live sensors from {age}. Refresh recommended.",
+      sectionLiveMetaEmpty: "No live sensor snapshot loaded yet.",
+      sectionDtcMetaFresh: "DTC snapshot updated {age}.",
+      sectionDtcMetaCached: "Showing cached DTC snapshot from {age}.",
+      sectionDtcMetaStale: "Showing stale cached DTC snapshot from {age}.",
+      sectionDtcMetaEmpty: "No DTC snapshot loaded yet.",
+      sectionHealthMetaFresh: "Health snapshot updated {age}. Auto-refresh active on this tab.",
+      sectionHealthMetaCached: "Showing cached health snapshot from {age}.",
+      sectionHealthMetaStale: "Showing stale cached health snapshot from {age}.",
+      sectionHealthMetaEmpty: "No health snapshot loaded yet.",
+      sectionTechnicalMetaFresh: "Technical data updated {age}.",
+      sectionTechnicalMetaCached: "Showing cached technical data from {age}.",
+      sectionTechnicalMetaStale: "Showing stale technical data from {age}.",
+      sectionTechnicalMetaSession: "Technical memory read kept only for this browser session.",
+      sectionTechnicalMetaEmpty: "No technical data loaded yet.",
+      activeCollectionTable: "Active table {table}",
+      activeCollectionTableUnknown: "Active table unknown",
+      technicalMemorySessionHint: "Memory reads are session-only on this device."
     },
     "pt-BR": {
       pageTitle: "Scanner ESP32 MA1.7",
@@ -252,25 +277,75 @@
       operationReadCollection: "leitura de coleta",
       operationClearErrors: "limpeza de erros",
       operationDetermineCollectionTable: "determinacao da tabela de coleta",
-      operationNone: "nenhuma"
+      operationNone: "nenhuma",
+      dataFresh: "Dado ao vivo",
+      dataCached: "Dado em cache",
+      dataSession: "Dado da sessao",
+      dataStale: "Cache desatualizado",
+      dataEmpty: "Sem snapshot",
+      sectionLiveMetaFresh: "Sensores ao vivo atualizados {age}. Autoatualizacao ativa.",
+      sectionLiveMetaCached: "Exibindo sensores em cache de {age}.",
+      sectionLiveMetaStale: "Exibindo sensores desatualizados de {age}. Recomendado atualizar.",
+      sectionLiveMetaEmpty: "Nenhum snapshot de sensores ao vivo foi carregado ainda.",
+      sectionDtcMetaFresh: "Snapshot de DTC atualizado {age}.",
+      sectionDtcMetaCached: "Exibindo snapshot de DTC em cache de {age}.",
+      sectionDtcMetaStale: "Exibindo snapshot de DTC em cache desatualizado de {age}.",
+      sectionDtcMetaEmpty: "Nenhum snapshot de DTC foi carregado ainda.",
+      sectionHealthMetaFresh: "Snapshot de saude atualizado {age}. Autoatualizacao ativa nesta aba.",
+      sectionHealthMetaCached: "Exibindo snapshot de saude em cache de {age}.",
+      sectionHealthMetaStale: "Exibindo snapshot de saude em cache desatualizado de {age}.",
+      sectionHealthMetaEmpty: "Nenhum snapshot de saude foi carregado ainda.",
+      sectionTechnicalMetaFresh: "Dados tecnicos atualizados {age}.",
+      sectionTechnicalMetaCached: "Exibindo dados tecnicos em cache de {age}.",
+      sectionTechnicalMetaStale: "Exibindo dados tecnicos desatualizados de {age}.",
+      sectionTechnicalMetaSession: "Leitura de memoria tecnica mantida apenas nesta sessao do navegador.",
+      sectionTechnicalMetaEmpty: "Nenhum dado tecnico foi carregado ainda.",
+      activeCollectionTable: "Tabela ativa {table}",
+      activeCollectionTableUnknown: "Tabela ativa desconhecida",
+      technicalMemorySessionHint: "Leituras de memoria ficam apenas nesta sessao do dispositivo."
     }
   };
 
+  const CACHE_VERSION = 2;
+  const dataTtls = {
+    status: 5000,
+    live: 8000,
+    dtc: 60000,
+    health: 15000,
+    catalog: 86400000,
+    technical: 300000
+  };
+
   const storageKeys = {
-    tab: "ma17.activeTab",
-    locale: "ma17.locale",
-    lastStatus: "ma17.lastStatus",
-    lastSensors: "ma17.lastSensors",
-    lastErrors: "ma17.lastErrors",
-    lastHealth: "ma17.lastHealth",
-    lastTechnical: "ma17.lastTechnical"
+    prefLocale: "ma17.pref.locale",
+    prefTab: "ma17.pref.activeTab",
+    prefCollectionTable: "ma17.pref.collectionTable",
+    cacheStatus: "ma17.cache.status",
+    cacheLive: "ma17.cache.live",
+    cacheDtc: "ma17.cache.dtc",
+    cacheHealth: "ma17.cache.health",
+    cacheCatalog: "ma17.cache.catalog",
+    sessionTechnicalMemory: "ma17.session.technicalMemory"
   };
 
   const initialLocale = detectInitialLocale();
+  const initialActiveTab = localStorage.getItem(storageKeys.prefTab) || "live";
+  const initialCollectionTable = localStorage.getItem(storageKeys.prefCollectionTable) || "0";
+  const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale));
+  const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale));
+  const initialDtcEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, initialLocale));
+  const initialHealthEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheHealth, initialLocale));
+  const initialCatalogEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheCatalog, initialLocale));
+  const initialTechnicalSessionEntry = loadSessionEntry(storageKeys.sessionTechnicalMemory);
+
   const state = {
-    activeTab: localStorage.getItem(storageKeys.tab) || "live",
+    activeTab: initialActiveTab,
     locale: initialLocale,
-    technicalMode: false,
+    collectionTable: initialCollectionTable,
+    technicalMode: Boolean(
+      getEntryPayload(initialStatusEntry) &&
+      getEntryPayload(initialStatusEntry).technical_mode_enabled
+    ),
     requestInFlight: false,
     rebootPendingUntil: 0,
     lastRequestStartedAt: 0,
@@ -278,12 +353,14 @@
     lastSuccessAt: 0,
     backendReachable: false,
     activeRequestLabel: "",
-    status: readCache(storageKeys.lastStatus, initialLocale),
-    sensors: readCache(storageKeys.lastSensors, initialLocale),
-    errors: readCache(storageKeys.lastErrors, initialLocale),
-    health: readCache(storageKeys.lastHealth, initialLocale),
-    technical: readCache(storageKeys.lastTechnical, initialLocale),
-    pollTimer: null
+    pollTimer: null,
+    data: {
+      status: initialStatusEntry,
+      live: initialLiveEntry,
+      dtc: initialDtcEntry,
+      health: initialHealthEntry,
+      technical: chooseMostRecentEntry(initialTechnicalSessionEntry, initialCatalogEntry)
+    }
   };
 
   const els = {
@@ -302,6 +379,10 @@
     errorList: byId("errorList"),
     healthList: byId("healthList"),
     technicalList: byId("technicalList"),
+    liveMeta: byId("liveMeta"),
+    dtcMeta: byId("dtcMeta"),
+    healthMeta: byId("healthMeta"),
+    technicalMeta: byId("technicalMeta"),
     connectBtn: byId("connectBtn"),
     rebootBtn: byId("rebootBtn"),
     refreshBtn: byId("refreshBtn"),
@@ -353,7 +434,7 @@
   }
 
   function detectInitialLocale() {
-    const stored = localStorage.getItem(storageKeys.locale);
+    const stored = localStorage.getItem(storageKeys.prefLocale);
     if (stored) {
       return normalizeLocale(stored);
     }
@@ -373,16 +454,140 @@
     localStorage.setItem(key, JSON.stringify(value));
   }
 
-  function cacheKey(baseKey, locale) {
-    return `${baseKey}.${normalizeLocale(locale)}`;
+  function getLocalizedStorageKey(baseKey, locale) {
+    return `${baseKey}.${normalizeLocale(locale || state.locale)}`;
   }
 
-  function readCache(baseKey, locale) {
-    return readJson(cacheKey(baseKey, locale));
+  function removeJson(key, storage) {
+    try {
+      (storage || localStorage).removeItem(key);
+    } catch (_) {
+      // Ignore storage failures.
+    }
   }
 
-  function writeCache(baseKey, value) {
-    writeJson(cacheKey(baseKey, state.locale), value);
+  function makeEntry(payload, options) {
+    const cfg = options || {};
+    return {
+      version: CACHE_VERSION,
+      savedAt: Date.now(),
+      ttlMs: cfg.ttlMs || 0,
+      source: cfg.source || "live",
+      sessionOnly: Boolean(cfg.sessionOnly),
+      payload
+    };
+  }
+
+  function loadPersistentEntry(key) {
+    const entry = readJson(key);
+    const normalized = normalizeEntry(entry);
+    return normalized
+      ? Object.assign({}, normalized, { source: "cache", sessionOnly: false })
+      : null;
+  }
+
+  function savePersistentEntry(key, payload, ttlMs, source) {
+    writeJson(key, makeEntry(payload, { ttlMs, source: source || "live" }));
+  }
+
+  function loadSessionEntry(key) {
+    try {
+      const raw = sessionStorage.getItem(key);
+      const normalized = normalizeEntry(raw ? JSON.parse(raw) : null);
+      return normalized
+        ? Object.assign({}, normalized, { source: "session", sessionOnly: true })
+        : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveSessionEntry(key, payload, source) {
+    try {
+      sessionStorage.setItem(
+        key,
+        JSON.stringify(makeEntry(payload, {
+          ttlMs: dataTtls.technical,
+          source: source || "session",
+          sessionOnly: true
+        }))
+      );
+    } catch (_) {
+      // Ignore storage failures.
+    }
+  }
+
+  function normalizeEntry(entry) {
+    if (!entry || entry.version !== CACHE_VERSION || typeof entry.savedAt !== "number") {
+      return null;
+    }
+    return entry;
+  }
+
+  function chooseMostRecentEntry(left, right) {
+    if (!left) {
+      return right || null;
+    }
+    if (!right) {
+      return left;
+    }
+    return left.savedAt >= right.savedAt ? left : right;
+  }
+
+  function isEntryExpired(entry) {
+    if (!entry) {
+      return true;
+    }
+    if (!entry.ttlMs) {
+      return false;
+    }
+    return Date.now() > entry.savedAt + entry.ttlMs;
+  }
+
+  function getEntryPayload(entry) {
+    return entry && entry.payload ? entry.payload : null;
+  }
+
+  function getDataBadge(entry) {
+    if (!entry) {
+      return t("dataEmpty");
+    }
+    if (entry.sessionOnly) {
+      return t("dataSession");
+    }
+    if (isEntryExpired(entry)) {
+      return t("dataStale");
+    }
+    return entry.source === "live" ? t("dataFresh") : t("dataCached");
+  }
+
+  function setDataEntry(name, payload, options) {
+    const cfg = options || {};
+    const entry = makeEntry(payload, {
+      ttlMs: cfg.ttlMs || 0,
+      source: cfg.source || "live",
+      sessionOnly: Boolean(cfg.sessionOnly)
+    });
+    state.data[name] = entry;
+
+    if (cfg.sessionKey) {
+      saveSessionEntry(cfg.sessionKey, payload, cfg.source);
+    } else if (cfg.storageKey) {
+      savePersistentEntry(cfg.storageKey, payload, cfg.ttlMs || 0, cfg.source);
+    }
+
+    return entry;
+  }
+
+  function clearDataEntry(name, options) {
+    const cfg = options || {};
+    state.data[name] = null;
+    if (cfg.storageKey) {
+      removeJson(cfg.storageKey, localStorage);
+    }
+    if (cfg.sessionKey) {
+      removeJson(cfg.sessionKey, sessionStorage);
+    }
   }
 
   function t(key, replacements) {
@@ -429,6 +634,7 @@
     els.subtitle.textContent = t("heroSubtitle");
     els.languageLabel.textContent = t("languageLabel");
     els.languageSelect.value = state.locale;
+    els.tableSelect.value = state.collectionTable;
     els.connectBtn.textContent = t("connectEcu");
     els.rebootBtn.textContent = t("rebootEsp32");
     els.refreshBtn.textContent = t("refreshNow");
@@ -468,6 +674,7 @@
     });
 
     els.languageSelect.addEventListener("change", onLocaleChange);
+    els.tableSelect.addEventListener("change", onCollectionTableChange);
 
     els.connectBtn.addEventListener("click", () =>
       runAction("/api/connect", { method: "POST" }, onStatusResponse));
@@ -484,9 +691,15 @@
 
   function setTab(tab) {
     state.activeTab = tab;
-    localStorage.setItem(storageKeys.tab, tab);
+    localStorage.setItem(storageKeys.prefTab, tab);
     renderTabs();
     schedulePolling();
+  }
+
+  function onCollectionTableChange() {
+    state.collectionTable = els.tableSelect.value;
+    localStorage.setItem(storageKeys.prefCollectionTable, state.collectionTable);
+    renderSectionMeta();
   }
 
   function renderTabs() {
@@ -507,11 +720,12 @@
     renderCacheSummary();
     renderTechnicalMode();
     renderCachedSections();
+    renderSectionMeta();
     syncControls();
   }
 
   function renderStatus() {
-    const status = state.status;
+    const status = getEntryPayload(state.data.status);
     if (!status) {
       els.statusGrid.innerHTML = "";
       els.liveBadge.textContent = t("noLiveData");
@@ -563,13 +777,19 @@
 
   function renderCacheSummary() {
     const pieces = [];
-    if (state.status) {
-      pieces.push(`${t("cacheStatus")}:${translateProtocolState(state.status.protocol_state)}`);
+    const status = getEntryPayload(state.data.status);
+    const live = getEntryPayload(state.data.live);
+    const dtc = getEntryPayload(state.data.dtc);
+    const health = getEntryPayload(state.data.health);
+    const technical = getEntryPayload(state.data.technical);
+
+    if (status) {
+      pieces.push(`${t("cacheStatus")}:${translateProtocolState(status.protocol_state)}`);
     }
-    if (state.sensors && state.sensors.sensors) pieces.push(`${t("cacheSensors")}:${state.sensors.sensors.length}`);
-    if (state.errors && state.errors.errors) pieces.push(`${t("cacheDtc")}:${state.errors.errors.length}`);
-    if (state.health && state.health.health) pieces.push(`${t("cacheHealth")}:1`);
-    if (state.technical) pieces.push(`${t("cacheTechnical")}:1`);
+    if (live && live.sensors) pieces.push(`${t("cacheSensors")}:${live.sensors.length}`);
+    if (dtc && dtc.errors) pieces.push(`${t("cacheDtc")}:${dtc.errors.length}`);
+    if (health && health.health) pieces.push(`${t("cacheHealth")}:1`);
+    if (technical) pieces.push(`${t("cacheTechnical")}:${getDataBadge(state.data.technical)}`);
 
     if (!pieces.length) {
       els.cacheBadge.textContent = t("cacheEmpty");
@@ -583,7 +803,8 @@
   }
 
   function renderNetworkBadge() {
-    const meta = state.status && state.status.meta ? state.status.meta : null;
+    const status = getEntryPayload(state.data.status);
+    const meta = status && status.meta ? status.meta : null;
 
     if (isRebootPending()) {
       els.netBadge.textContent = t("linkRebooting");
@@ -623,10 +844,57 @@
   }
 
   function renderCachedSections() {
-    renderSensors(state.sensors);
-    renderErrors(state.errors);
-    renderHealth(state.health);
-    renderTechnical(state.technical);
+    renderSensors(getEntryPayload(state.data.live));
+    renderErrors(getEntryPayload(state.data.dtc));
+    renderHealth(getEntryPayload(state.data.health));
+    renderTechnical(getEntryPayload(state.data.technical));
+  }
+
+  function renderSectionMeta() {
+    els.liveMeta.textContent = describeSectionMeta("live", state.data.live);
+    els.dtcMeta.textContent = describeSectionMeta("dtc", state.data.dtc);
+    els.healthMeta.textContent = describeSectionMeta("health", state.data.health);
+    els.technicalMeta.textContent = describeSectionMeta("technical", state.data.technical);
+  }
+
+  function describeSectionMeta(section, entry) {
+    if (!entry) {
+      if (section === "live") return t("sectionLiveMetaEmpty");
+      if (section === "dtc") return t("sectionDtcMetaEmpty");
+      if (section === "health") return t("sectionHealthMetaEmpty");
+      return t("sectionTechnicalMetaEmpty");
+    }
+
+    const age = formatAge(entry.savedAt);
+    if (section === "live") {
+      const payload = getEntryPayload(entry);
+      const tableInfo =
+        payload && payload.table
+          ? ` ${t("activeCollectionTable", { table: payload.table })}.`
+          : ` ${t("activeCollectionTableUnknown")}.`;
+      if (isEntryExpired(entry)) return `${t("sectionLiveMetaStale", { age })}${tableInfo}`;
+      if (entry.source === "live") return `${t("sectionLiveMetaFresh", { age })}${tableInfo}`;
+      return `${t("sectionLiveMetaCached", { age })}${tableInfo}`;
+    }
+
+    if (section === "dtc") {
+      if (isEntryExpired(entry)) return t("sectionDtcMetaStale", { age });
+      if (entry.source === "live") return t("sectionDtcMetaFresh", { age });
+      return t("sectionDtcMetaCached", { age });
+    }
+
+    if (section === "health") {
+      if (isEntryExpired(entry)) return t("sectionHealthMetaStale", { age });
+      if (entry.source === "live") return t("sectionHealthMetaFresh", { age });
+      return t("sectionHealthMetaCached", { age });
+    }
+
+    if (entry.sessionOnly) {
+      return `${t("sectionTechnicalMetaSession")} ${t("technicalMemorySessionHint")}`;
+    }
+    if (isEntryExpired(entry)) return t("sectionTechnicalMetaStale", { age });
+    if (entry.source === "live") return t("sectionTechnicalMetaFresh", { age });
+    return t("sectionTechnicalMetaCached", { age });
   }
 
   function renderSensors(payload) {
@@ -714,7 +982,7 @@
   }
 
   function syncControls() {
-    const status = state.status || {};
+    const status = getEntryPayload(state.data.status) || {};
     const ready = Boolean(
       status.meta && typeof status.meta.ready_for_commands === "boolean"
         ? status.meta.ready_for_commands
@@ -760,14 +1028,17 @@
     if (typeof payload.technical_mode_enabled === "boolean") {
       state.technicalMode = payload.technical_mode_enabled;
     }
-    state.status = payload;
-    writeCache(storageKeys.lastStatus, payload);
+    setDataEntry("status", payload, {
+      storageKey: getLocalizedStorageKey(storageKeys.cacheStatus),
+      ttlMs: dataTtls.status,
+      source: "live"
+    });
     renderAll();
   }
 
   function schedulePolling() {
     clearTimeout(state.pollTimer);
-    const status = state.status || {};
+    const status = getEntryPayload(state.data.status) || {};
     if (state.requestInFlight) {
       return;
     }
@@ -779,7 +1050,7 @@
     state.pollTimer = setTimeout(async () => {
       await pollStatus(false);
 
-      const latest = state.status || {};
+      const latest = getEntryPayload(state.data.status) || {};
       if (latest.protocol_state === "ready") {
         if (state.activeTab === "live") {
           await loadSensors(true);
@@ -793,20 +1064,28 @@
   async function loadSensors(silent) {
     const table = encodeURIComponent(els.tableSelect.value);
     await runAction(`/api/sensors/collection?table=${table}`, {}, (payload) => {
-      state.sensors = payload;
-      writeCache(storageKeys.lastSensors, payload);
+      setDataEntry("live", payload, {
+        storageKey: getLocalizedStorageKey(storageKeys.cacheLive),
+        ttlMs: dataTtls.live,
+        source: "live"
+      });
       renderSensors(payload);
       renderCacheSummary();
+      renderSectionMeta();
       if (!silent) setMessage(t("liveSensorUpdated"), "ok");
     }, { silentStartMessage: Boolean(silent) });
   }
 
   async function loadErrors() {
     await runAction("/api/errors", {}, (payload) => {
-      state.errors = payload;
-      writeCache(storageKeys.lastErrors, payload);
+      setDataEntry("dtc", payload, {
+        storageKey: getLocalizedStorageKey(storageKeys.cacheDtc),
+        ttlMs: dataTtls.dtc,
+        source: "live"
+      });
       renderErrors(payload);
       renderCacheSummary();
+      renderSectionMeta();
       setMessage(t("dtcUpdated"), "ok");
     });
   }
@@ -822,10 +1101,14 @@
 
   async function loadHealth(silent) {
     await runAction("/api/health", {}, (payload) => {
-      state.health = payload;
-      writeCache(storageKeys.lastHealth, payload);
+      setDataEntry("health", payload, {
+        storageKey: getLocalizedStorageKey(storageKeys.cacheHealth),
+        ttlMs: dataTtls.health,
+        source: "live"
+      });
       renderHealth(payload);
       renderCacheSummary();
+      renderSectionMeta();
       if (!silent) setMessage(t("healthUpdated"), "ok");
     }, {
       silentBusy: true,
@@ -838,20 +1121,29 @@
     const lo = encodeURIComponent(els.memLo.value.trim());
     const len = encodeURIComponent(els.memLen.value.trim());
     await runAction(`/api/memory/read?hi=${hi}&lo=${lo}&len=${len}`, {}, (payload) => {
-      state.technical = payload;
-      writeCache(storageKeys.lastTechnical, payload);
+      setDataEntry("technical", payload, {
+        sessionKey: storageKeys.sessionTechnicalMemory,
+        ttlMs: dataTtls.technical,
+        source: "live",
+        sessionOnly: true
+      });
       renderTechnical(payload);
       renderCacheSummary();
+      renderSectionMeta();
       setMessage(t("rawMemoryUpdated"), "ok");
     });
   }
 
   async function loadCatalog() {
     await runAction("/api/sensors/catalog", {}, (payload) => {
-      state.technical = payload;
-      writeCache(storageKeys.lastTechnical, payload);
+      setDataEntry("technical", payload, {
+        storageKey: getLocalizedStorageKey(storageKeys.cacheCatalog),
+        ttlMs: dataTtls.catalog,
+        source: "live"
+      });
       renderTechnical(payload);
       renderCacheSummary();
+      renderSectionMeta();
       setMessage(t("catalogLoaded"), "ok");
     }, {
       silentBusy: true,
@@ -963,8 +1255,11 @@
 
   function handleErrorPayload(payload) {
     if (payload && payload.protocol_state) {
-      state.status = payload;
-      writeCache(storageKeys.lastStatus, payload);
+      setDataEntry("status", payload, {
+        storageKey: getLocalizedStorageKey(storageKeys.cacheStatus),
+        ttlMs: dataTtls.status,
+        source: "live"
+      });
       renderAll();
     }
 
@@ -1020,12 +1315,19 @@
     }
 
     state.locale = nextLocale;
-    localStorage.setItem(storageKeys.locale, state.locale);
-    state.status = readCache(storageKeys.lastStatus, state.locale);
-    state.sensors = readCache(storageKeys.lastSensors, state.locale);
-    state.errors = readCache(storageKeys.lastErrors, state.locale);
-    state.health = readCache(storageKeys.lastHealth, state.locale);
-    state.technical = readCache(storageKeys.lastTechnical, state.locale);
+    localStorage.setItem(storageKeys.prefLocale, state.locale);
+    state.data.status = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, state.locale));
+    state.data.live = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, state.locale));
+    state.data.dtc = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, state.locale));
+    state.data.health = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheHealth, state.locale));
+    state.data.technical = chooseMostRecentEntry(
+      loadSessionEntry(storageKeys.sessionTechnicalMemory),
+      loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheCatalog, state.locale))
+    );
+    state.technicalMode = Boolean(
+      getEntryPayload(state.data.status) &&
+      getEntryPayload(state.data.status).technical_mode_enabled
+    );
     renderAll();
 
     await pollStatus(true);
@@ -1033,7 +1335,7 @@
   }
 
   async function refreshLocalizedActiveTab() {
-    const status = state.status || {};
+    const status = getEntryPayload(state.data.status) || {};
     const ready = status.protocol_state === "ready" && status.init_ready && !status.busy;
 
     if (state.activeTab === "live" && ready) {
@@ -1052,12 +1354,13 @@
     }
 
     if (state.activeTab === "technical" && state.technicalMode) {
-      if (state.technical && state.technical.sensors) {
+      const technical = getEntryPayload(state.data.technical);
+      if (technical && technical.sensors) {
         await loadCatalog();
         return;
       }
 
-      if (state.technical && state.technical.packets && ready) {
+      if (technical && technical.packets && ready) {
         await loadMemory();
       }
     }

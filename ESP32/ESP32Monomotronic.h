@@ -125,7 +125,7 @@ class ESP32Monomotronic {
         uint8_t data_length{0};
     };
 
-    bool inited_{false};
+    std::atomic<bool> inited_{false};
     std::atomic<int> taskState_{0};
     std::atomic<int> ECUThreadErr_{0};
     std::atomic<bool> ECUConnected_{false};
@@ -136,6 +136,7 @@ class ESP32Monomotronic {
     std::atomic<bool> ECUNewCommandAvailable_{false};
     std::atomic<bool> ECUCommandResultAvailable_{false};
     std::atomic<bool> stopRequested_{false};
+    std::mutex initMutex_;
     std::mutex commandMutex_;
     std::mutex sessionMutex_;
     mutable std::mutex initPacketsMutex_;
@@ -206,7 +207,7 @@ class ESP32Monomotronic {
                         uint8_t length = 0);
 
     eTaskState getThreadState() const {
-        if (inited_) {
+        if (inited_.load(std::memory_order_acquire)) {
             return eTaskGetState(Task1_);
         }
         return eDeleted;

@@ -7,6 +7,9 @@ Firmware principal ESP32 para o scanner Bosch Monomotronic MA1.7.
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include <WiFiClient.h>
+#include <atomic>
+#include <cstdio>
+#include <cstring>
 #include <cstdlib>
 
 #include "ESP32Monomotronic.h"
@@ -16,7 +19,7 @@ Firmware principal ESP32 para o scanner Bosch Monomotronic MA1.7.
 ESP32Monomotronic scanner;
 AsyncWebServer server(80);
 String serialCommandBuffer;
-bool technicalModeEnabled = false;
+std::atomic<bool> technicalModeEnabled{false};
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN 2
@@ -24,6 +27,12 @@ bool technicalModeEnabled = false;
 
 namespace {
 enum class EndpointAccess : uint8_t { Always, ReadyOnly, Technical };
+constexpr size_t kBaseJsonReserve = 256;
+constexpr size_t kPacketJsonReserve = 160;
+constexpr size_t kSensorJsonReserve = 112;
+constexpr size_t kCatalogEntryJsonReserve = 104;
+constexpr size_t kErrorJsonReserve = 128;
+
 struct LocalizedText {
     const char *en;
     const char *pt_br;
@@ -77,6 +86,26 @@ void AppendJsonEscaped(String &out, const char *text) {
     }
 }
 
+void AppendUnsigned(String &out, unsigned long value) {
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%lu", value);
+    out += buffer;
+}
+
+void AppendSigned(String &out, long value) {
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%ld", value);
+    out += buffer;
+}
+
+void AppendFloat3(String &out, float value) {
+    char buffer[24];
+    snprintf(buffer, sizeof(buffer), "%.3f", static_cast<double>(value));
+    out += buffer;
+}
+
+void AppendBool(String &out, bool value) { out += value ? "true" : "false"; }
+
 bool ParseByteValue(const String &text, uint8_t &value) {
     char *end = nullptr;
     unsigned long parsed = strtoul(text.c_str(), &end, 0);
@@ -103,33 +132,45 @@ bool IsValidCollectionTable(uint8_t table) {
     return table == 0 || table == 1 || table == 2;
 }
 
-String PacketText(const ECUmmpacket &packet) {
-    String value;
+void AppendPacketTextEscaped(String &out, const ECUmmpacket &packet) {
     for (uint8_t i = 0; i < packet.data_length; ++i) {
         const char c = static_cast<char>(packet.data[i]);
         if (c >= 32 && c < 127) {
-            value += c;
+            switch (c) {
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            default:
+                out += c;
+                break;
+            }
         }
     }
-    return value;
 }
 
 bool IsReadyForCommands(const ECUStatusSnapshot &status);
 
+size_t EstimatePacketJsonCapacity(const ECUmmpacket &packet) {
+    return kPacketJsonReserve + static_cast<size_t>(packet.data_length) * 5;
+}
+
 void AppendPacketJson(String &out, const ECUmmpacket &packet) {
     out += "{";
     out += "\"size\":";
-    out += String(packet.size);
+    AppendUnsigned(out, packet.size);
     out += ",\"counter\":";
-    out += String(packet.counter);
+    AppendUnsigned(out, packet.counter);
     out += ",\"frame\":";
-    out += String(packet.frametypeid);
+    AppendUnsigned(out, packet.frametypeid);
     out += ",\"data\":[";
     for (uint8_t i = 0; i < packet.data_length; ++i) {
         if (i > 0) {
             out += ",";
         }
-        out += String(packet.data[i]);
+        AppendUnsigned(out, packet.data[i]);
     }
     out += "]}";
 }
@@ -140,27 +181,27 @@ void AppendStatusFields(String &out, const ECUStatusSnapshot &status) {
     out += "\",\"current_operation\":\"";
     out += status.current_operation;
     out += "\",\"connected\":";
-    out += status.connected ? "true" : "false";
+    AppendBool(out, status.connected);
     out += ",\"can_accept_commands\":";
-    out += status.can_accept_commands ? "true" : "false";
+    AppendBool(out, status.can_accept_commands);
     out += ",\"busy\":";
-    out += status.busy ? "true" : "false";
+    AppendBool(out, status.busy);
     out += ",\"init_ready\":";
-    out += status.init_ready ? "true" : "false";
+    AppendBool(out, status.init_ready);
     out += ",\"echo_byte_present\":";
-    out += status.echo_byte_present ? "true" : "false";
+    AppendBool(out, status.echo_byte_present);
     out += ",\"thread_started\":";
-    out += status.thread_started ? "true" : "false";
+    AppendBool(out, status.thread_started);
     out += ",\"thread_state\":";
-    out += String(status.task_state);
+    AppendSigned(out, status.task_state);
     out += ",\"freertos_state\":";
-    out += String(status.freertos_state);
+    AppendSigned(out, status.freertos_state);
     out += ",\"error_code\":";
-    out += String(status.error_code);
+    AppendSigned(out, status.error_code);
     out += ",\"debug_line\":";
-    out += String(status.debug_line);
+    AppendSigned(out, status.debug_line);
     out += ",\"technical_mode_enabled\":";
-    out += technicalModeEnabled ? "true" : "false";
+    AppendBool(out, technicalModeEnabled.load(std::memory_order_relaxed));
 }
 
 void AppendResponseMeta(String &out, const ECUStatusSnapshot &status) {
@@ -171,33 +212,35 @@ void AppendResponseMeta(String &out, const ECUStatusSnapshot &status) {
 
     out += ",\"meta\":{";
     out += "\"generated_at_ms\":";
-    out += String(now);
+    AppendUnsigned(out, now);
     out += ",\"uptime_ms\":";
-    out += String(now);
+    AppendUnsigned(out, now);
     out += ",\"free_heap_bytes\":";
-    out += String(ESP.getFreeHeap());
+    AppendUnsigned(out, ESP.getFreeHeap());
     out += ",\"wifi_connected\":";
-    out += wifiConnected ? "true" : "false";
+    AppendBool(out, wifiConnected);
     out += ",\"wifi_rssi_dbm\":";
     if (wifiConnected) {
-        out += String(WiFi.RSSI());
+        AppendSigned(out, WiFi.RSSI());
     } else {
         out += "null";
     }
     out += ",\"ready_for_commands\":";
-    out += IsReadyForCommands(status) ? "true" : "false";
+    AppendBool(out, IsReadyForCommands(status));
     out += ",\"last_packet_age_ms\":";
     if (health.last_packet_ms == 0 || health.last_packet_ms > now) {
         out += "null";
     } else {
-        out += String(now - health.last_packet_ms);
+        AppendUnsigned(out, now - health.last_packet_ms);
     }
     out += "}";
 }
 
 String BuildErrorJson(const char *errorCode, const char *message) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":false,";
+    String result;
+    result.reserve(kBaseJsonReserve + strlen(errorCode) + strlen(message));
+    result = "{\"ok\":false,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"error_code\":\"";
@@ -218,7 +261,9 @@ String BuildStatusJson() {
     ECUResponseCollection initPackets;
     const bool hasInitPackets = scanner.getInitPacketsSnapshot(initPackets);
 
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve + initPackets.count * 48);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"init_strings\":[";
@@ -234,8 +279,7 @@ String BuildStatusJson() {
                 result += ",";
             }
             result += "\"";
-            const String initText = PacketText(packet);
-            AppendJsonEscaped(result, initText.c_str());
+            AppendPacketTextEscaped(result, packet);
             result += "\"";
             first = false;
         }
@@ -247,35 +291,40 @@ String BuildStatusJson() {
 String BuildHealthJson() {
     const ECUHealthSnapshot health = scanner.getHealthSnapshot();
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve + 160);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"health\":{";
     result += "\"packets_sent\":";
-    result += String(health.packets_sent);
+    AppendUnsigned(result, health.packets_sent);
     result += ",\"packets_received\":";
-    result += String(health.packets_received);
+    AppendUnsigned(result, health.packets_received);
     result += ",\"timeouts\":";
-    result += String(health.timeouts);
+    AppendUnsigned(result, health.timeouts);
     result += ",\"retries\":";
-    result += String(health.retries);
+    AppendUnsigned(result, health.retries);
     result += ",\"reconnects\":";
-    result += String(health.reconnects);
+    AppendUnsigned(result, health.reconnects);
     result += ",\"ack_errors\":";
-    result += String(health.ack_errors);
+    AppendUnsigned(result, health.ack_errors);
     result += ",\"packet_errors\":";
-    result += String(health.packet_errors);
+    AppendUnsigned(result, health.packet_errors);
     result += ",\"last_packet_ms\":";
-    result += String(health.last_packet_ms);
+    AppendUnsigned(result, health.last_packet_ms);
     result += ",\"last_collection_table\":";
-    result += String(health.last_collection_table);
+    AppendUnsigned(result, health.last_collection_table);
     result += "}}";
     return result;
 }
 
 String BuildCatalogJson(TextLocale locale) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve +
+                   GetSensorCatalogCount() * kCatalogEntryJsonReserve);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"technical\":true,\"sensors\":[";
@@ -295,13 +344,13 @@ String BuildCatalogJson(TextLocale locale) {
         result += "\",\"unit\":\"";
         AppendJsonEscaped(result, entry.unit);
         result += "\",\"id\":";
-        result += String(entry.id);
+        AppendUnsigned(result, entry.id);
         result += ",\"subcommand\":";
-        result += String(entry.subcommand);
+        AppendUnsigned(result, entry.subcommand);
         result += ",\"length\":";
-        result += String(entry.length);
+        AppendUnsigned(result, entry.length);
         result += ",\"table\":";
-        result += String(entry.collection_table);
+        AppendUnsigned(result, entry.collection_table);
         result += "}";
     }
 
@@ -320,7 +369,8 @@ bool IsOperationAllowed(const ECUStatusSnapshot &status, EndpointAccess access,
         return true;
     }
 
-    if (access == EndpointAccess::Technical && !technicalModeEnabled) {
+    if (access == EndpointAccess::Technical &&
+        !technicalModeEnabled.load(std::memory_order_relaxed)) {
         httpCode = 403;
         payload = BuildErrorJson(
             "technical_mode_disabled", locale,
@@ -355,13 +405,21 @@ bool IsOperationAllowed(const ECUStatusSnapshot &status, EndpointAccess access,
 String BuildErrorsJson(TextLocale locale) {
     optional<ECUResponseCollection> response = scanner.ECUReadErrors();
     if (!response.has_value()) {
+        if (scanner.isBusy()) {
+            return BuildErrorJson("busy", locale,
+                                  {"Another ECU operation is in flight",
+                                   "Outra operacao da ECU esta em andamento"});
+        }
         return BuildErrorJson("read_failed", locale,
                               {"Failed to read ECU errors",
                                "Falha ao ler os erros da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve +
+                   response.value().count * kErrorJsonReserve);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"errors\":[";
@@ -383,7 +441,7 @@ String BuildErrorsJson(TextLocale locale) {
 
         result += "{";
         result += "\"present\":";
-        result += present ? "true" : "false";
+        AppendBool(result, present);
         result += ",\"description\":\"";
         AppendJsonEscaped(result, description);
         result += "\",\"packet\":";
@@ -399,13 +457,20 @@ String BuildErrorsJson(TextLocale locale) {
 String BuildClearErrorsJson(TextLocale locale) {
     optional<ECUmmpacket> response = scanner.ECUCleanErrors();
     if (!response.has_value()) {
+        if (scanner.isBusy()) {
+            return BuildErrorJson("busy", locale,
+                                  {"Another ECU operation is in flight",
+                                   "Outra operacao da ECU esta em andamento"});
+        }
         return BuildErrorJson("clear_failed", locale,
                               {"Failed to clear ECU errors",
                                "Falha ao limpar os erros da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve + EstimatePacketJsonCapacity(response.value()));
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"packet\":";
@@ -418,21 +483,29 @@ String BuildMemoryReadJson(TextLocale locale, uint8_t hi, uint8_t lo,
                            uint8_t len) {
     optional<ECUResponseCollection> response = scanner.readECUMemory(hi, lo, len);
     if (!response.has_value()) {
+        if (scanner.isBusy()) {
+            return BuildErrorJson("busy", locale,
+                                  {"Another ECU operation is in flight",
+                                   "Outra operacao da ECU esta em andamento"});
+        }
         return BuildErrorJson("memory_read_failed", locale,
                               {"Failed to read ECU memory",
                                "Falha ao ler a memoria da ECU"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve +
+                   response.value().count * kPacketJsonReserve);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"technical\":true,\"request\":{\"hi\":";
-    result += String(hi);
+    AppendUnsigned(result, hi);
     result += ",\"lo\":";
-    result += String(lo);
+    AppendUnsigned(result, lo);
     result += ",\"len\":";
-    result += String(len);
+    AppendUnsigned(result, len);
     result += "},\"packets\":[";
     for (size_t i = 0; i < response.value().count; ++i) {
         if (i > 0) {
@@ -449,23 +522,37 @@ String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
     if (tableId == 0) {
         tableId = scanner.determineCollectionTable();
         if (tableId == 0) {
+            if (scanner.isBusy()) {
+                return BuildErrorJson(
+                    "busy", locale,
+                    {"Another ECU operation is in flight",
+                     "Outra operacao da ECU esta em andamento"});
+            }
             tableId = 1;
         }
     }
 
     optional<ECUResponseCollection> response = scanner.requestSensorCollection();
     if (!response.has_value()) {
+        if (scanner.isBusy()) {
+            return BuildErrorJson("busy", locale,
+                                  {"Another ECU operation is in flight",
+                                   "Outra operacao da ECU esta em andamento"});
+        }
         return BuildErrorJson("collection_failed", locale,
                               {"Failed to read sensor collection",
                                "Falha ao ler a coleta de sensores"});
     }
 
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve +
+                   response.value().count * kCollectionSlots * kSensorJsonReserve);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"table\":";
-    result += String(tableId);
+    AppendUnsigned(result, tableId);
     result += ",\"sensors\":[";
 
     const std::array<KlineEntry, kCollectionSlots> *table =
@@ -493,13 +580,13 @@ String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
 
             result += "{";
             result += "\"id\":";
-            result += String(sensorId);
+            AppendUnsigned(result, sensorId);
             result += ",\"subcommand\":";
-            result += String(subcmd);
+            AppendUnsigned(result, subcmd);
             result += ",\"raw\":";
-            result += String(packet.data[i]);
+            AppendUnsigned(result, packet.data[i]);
             result += ",\"slot\":";
-            result += String(i);
+            AppendUnsigned(result, i);
             if (entry != nullptr) {
                 result += ",\"key\":\"";
                 AppendJsonEscaped(result, entry->key);
@@ -508,7 +595,7 @@ String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
                 result += "\",\"unit\":\"";
                 AppendJsonEscaped(result, entry->unit);
                 result += "\",\"value\":";
-                result += String(entry->decode(packet.data[i]), 3);
+                AppendFloat3(result, entry->decode(packet.data[i]));
             }
             result += "}";
             first = false;
@@ -544,13 +631,15 @@ String BuildConnectJson(TextLocale locale) {
 }
 
 String BuildTechnicalModeJson(bool enabled) {
-    technicalModeEnabled = enabled;
+    technicalModeEnabled.store(enabled, std::memory_order_relaxed);
     return BuildStatusJson();
 }
 
 String BuildRebootJson(TextLocale locale) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
-    String result = "{\"ok\":true,";
+    String result;
+    result.reserve(kBaseJsonReserve);
+    result = "{\"ok\":true,";
     AppendStatusFields(result, status);
     AppendResponseMeta(result, status);
     result += ",\"message\":\"";
@@ -683,7 +772,10 @@ void ConfigureRoutes() {
     });
 
     server.on("/ram", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", String(ESP.getFreeHeap()));
+        char buffer[16];
+        snprintf(buffer, sizeof(buffer), "%lu",
+                 static_cast<unsigned long>(ESP.getFreeHeap()));
+        request->send(200, "text/plain", buffer);
     });
 
     server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {

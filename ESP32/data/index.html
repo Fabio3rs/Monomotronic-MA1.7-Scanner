@@ -252,6 +252,10 @@
       font-size: 0.85rem;
     }
 
+    .section-meta {
+      padding: 4px 2px 0;
+    }
+
     .mono {
       font-family: "Consolas", "SFMono-Regular", monospace;
       word-break: break-word;
@@ -406,6 +410,7 @@
                 <button id="loadSensorsBtn">Read live sensors</button>
               </div>
             </div>
+            <div id="liveMeta" class="small section-meta">No live data yet</div>
             <div id="initStrings" class="list"></div>
             <div class="table-head" aria-hidden="true">
               <div>Sensor</div>
@@ -420,11 +425,13 @@
               <button id="readErrorsBtn">Read DTC</button>
               <button id="clearErrorsBtn" class="warn">Clear DTC</button>
             </div>
+            <div id="dtcMeta" class="small section-meta">No DTC snapshot loaded yet.</div>
             <div id="errorList" class="list"></div>
           </div>
 
           <div id="tab-health" class="stack section-hidden">
             <button id="loadHealthBtn" class="secondary">Refresh health</button>
+            <div id="healthMeta" class="small section-meta">No health snapshot loaded yet.</div>
             <div id="healthList" class="list"></div>
           </div>
 
@@ -449,6 +456,7 @@
               </div>
             </div>
             <button id="loadCatalogBtn" class="secondary">Load sensor catalog</button>
+            <div id="technicalMeta" class="small section-meta">No technical data loaded yet.</div>
             <div id="technicalList" class="list"></div>
           </div>
         </section>
