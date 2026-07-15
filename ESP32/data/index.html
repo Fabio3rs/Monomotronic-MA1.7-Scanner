@@ -702,23 +702,15 @@
         </section>
 
         <section class="card">
-          <div class="tabs">
-            <button class="tab active" data-tab="live">Live</button>
-            <button class="tab" data-tab="dtc">DTC</button>
-            <button class="tab" data-tab="health">Health</button>
-            <button class="tab" data-tab="technical">Technical</button>
+          <div class="tabs" role="tablist" aria-label="Scanner data sections">
+            <button id="tab-button-live" class="tab active" data-tab="live" role="tab" aria-selected="true" aria-controls="tab-live">Live</button>
+            <button id="tab-button-dtc" class="tab" data-tab="dtc" role="tab" aria-selected="false" aria-controls="tab-dtc" tabindex="-1">DTC</button>
+            <button id="tab-button-health" class="tab" data-tab="health" role="tab" aria-selected="false" aria-controls="tab-health" tabindex="-1">Health</button>
+            <button id="tab-button-technical" class="tab" data-tab="technical" role="tab" aria-selected="false" aria-controls="tab-technical" tabindex="-1">Technical</button>
           </div>
 
-          <div id="tab-live" class="stack">
+          <div id="tab-live" class="stack" role="tabpanel" aria-labelledby="tab-button-live">
             <div class="row">
-              <div class="field">
-                <label id="collectionTableLabel" for="tableSelect">Collection table</label>
-                <select id="tableSelect">
-                  <option value="0">Auto</option>
-                  <option value="1">Table 1</option>
-                  <option value="2">Table 2</option>
-                </select>
-              </div>
               <div class="field">
                 <label>&nbsp;</label>
                 <button id="loadSensorsBtn">Read live sensors</button>
@@ -734,22 +726,22 @@
             <div id="sensorList" class="table"></div>
           </div>
 
-          <div id="tab-dtc" class="stack section-hidden">
+          <div id="tab-dtc" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-dtc" hidden>
             <div class="actions">
               <button id="readErrorsBtn">Read DTC</button>
-              <button id="clearErrorsBtn" class="warn">Clear DTC</button>
+              <button id="clearErrorsBtn" class="danger">Clear DTC</button>
             </div>
             <div id="dtcMeta" class="small section-meta">No DTC snapshot loaded yet.</div>
             <div id="errorList" class="list"></div>
           </div>
 
-          <div id="tab-health" class="stack section-hidden">
+          <div id="tab-health" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-health" hidden>
             <button id="loadHealthBtn" class="secondary">Refresh health</button>
             <div id="healthMeta" class="small section-meta">No health snapshot loaded yet.</div>
             <div id="healthList" class="list"></div>
           </div>
 
-          <div id="tab-technical" class="stack section-hidden">
+          <div id="tab-technical" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-technical" hidden>
             <div id="technicalSummary" class="small">Technical tools stay outside the normal driving workflow.</div>
             <div class="actions">
               <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
@@ -757,21 +749,22 @@
             <div class="row">
               <div class="field">
                 <label id="memHiLabel" for="memHi">Addr HI</label>
-                <input id="memHi" value="0x00">
+                <input id="memHi" value="0x00" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
               </div>
               <div class="field">
                 <label id="memLoLabel" for="memLo">Addr LO</label>
-                <input id="memLo" value="0x63">
+                <input id="memLo" value="0x63" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
               </div>
               <div class="field">
                 <label id="memLenLabel" for="memLen">Length</label>
-                <input id="memLen" value="0x01">
+                <input id="memLen" value="0x01" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
               </div>
               <div class="field">
                 <label>&nbsp;</label>
                 <button id="readMemoryBtn" class="secondary">Read memory</button>
               </div>
             </div>
+            <div id="memValidationMessage" class="small err" aria-live="polite"></div>
             <button id="loadCatalogBtn" class="secondary">Load sensor catalog</button>
             <div id="technicalMeta" class="small section-meta">No technical data loaded yet.</div>
             <div id="technicalList" class="list"></div>

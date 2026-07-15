@@ -68,10 +68,6 @@
       tabDtc: "DTC",
       tabHealth: "Health",
       tabTechnical: "Technical",
-      collectionTable: "Collection table",
-      auto: "Auto",
-      table1: "Table 1",
-      table2: "Table 2",
       readLiveSensors: "Read live sensors",
       readDtc: "Read DTC",
       clearDtc: "Clear DTC",
@@ -134,6 +130,7 @@
       requestStarted: "Sending {operation}...",
       requestFinished: "{operation} completed in {ms} ms.",
       rebootConfirm: "Reboot the ESP32 now?",
+      clearDtcConfirm: "Clear all stored DTC codes now? This removes the current diagnostic history.",
       rebootRequested: "Reboot command sent. Waiting for the ESP32 to come back.",
       liveSensorUpdated: "Live sensor snapshot updated.",
       dtcUpdated: "DTC snapshot updated.",
@@ -156,6 +153,7 @@
       errorConnectFailed: "The scanner could not start the ECU session. Check ECU power, wiring, and ignition state.",
       errorCollectionFailed: "The live sensor read failed. Retry after the scanner returns to ready.",
       errorMemoryReadFailed: "The technical memory read failed. Recheck the address fields and retry.",
+      errorMemoryFieldFormat: "{field} must use hexadecimal byte format like 0x00 to 0xFF.",
       requestFailed: "Request failed.",
       diagnosticsWaiting: "Waiting for scanner diagnostics.",
       diagnosticsAp: "AP",
@@ -301,10 +299,6 @@
       tabDtc: "DTC",
       tabHealth: "Saude",
       tabTechnical: "Tecnico",
-      collectionTable: "Tabela de coleta",
-      auto: "Auto",
-      table1: "Tabela 1",
-      table2: "Tabela 2",
       readLiveSensors: "Ler sensores ao vivo",
       readDtc: "Ler DTC",
       clearDtc: "Limpar DTC",
@@ -367,6 +361,7 @@
       requestStarted: "Enviando {operation}...",
       requestFinished: "{operation} concluida em {ms} ms.",
       rebootConfirm: "Reiniciar o ESP32 agora?",
+      clearDtcConfirm: "Limpar todos os codigos DTC armazenados agora? Isso remove o historico atual de diagnostico.",
       rebootRequested: "Comando de reinicio enviado. Aguardando o ESP32 voltar.",
       liveSensorUpdated: "Snapshot de sensores ao vivo atualizado.",
       dtcUpdated: "Snapshot de DTC atualizado.",
@@ -389,6 +384,7 @@
       errorConnectFailed: "O scanner nao conseguiu iniciar a sessao com a ECU. Confira alimentacao, fiacao e ignicao.",
       errorCollectionFailed: "A leitura de sensores ao vivo falhou. Tente de novo quando o scanner voltar ao estado pronto.",
       errorMemoryReadFailed: "A leitura tecnica de memoria falhou. Revise os campos de endereco e tente novamente.",
+      errorMemoryFieldFormat: "{field} deve usar formato hexadecimal de byte, como 0x00 ate 0xFF.",
       requestFailed: "Falha na requisicao.",
       diagnosticsWaiting: "Aguardando diagnostico do scanner.",
       diagnosticsAp: "AP",
@@ -481,7 +477,6 @@
   const storageKeys = {
     prefLocale: "ma17.pref.locale",
     prefTab: "ma17.pref.activeTab",
-    prefCollectionTable: "ma17.pref.collectionTable",
     prefProfile: "ma17.pref.profile",
     cacheStatus: "ma17.cache.status",
     cacheLive: "ma17.cache.live",
@@ -493,7 +488,6 @@
 
   const initialLocale = detectInitialLocale();
   const initialActiveTab = localStorage.getItem(storageKeys.prefTab) || "live";
-  const initialCollectionTable = localStorage.getItem(storageKeys.prefCollectionTable) || "0";
   const initialProfileId = localStorage.getItem(storageKeys.prefProfile) || "";
   const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale));
   const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale));
@@ -505,7 +499,6 @@
   const state = {
     activeTab: initialActiveTab,
     locale: initialLocale,
-    collectionTable: initialCollectionTable,
     selectedProfileId: initialProfileId,
     backendSelectedProfileId: "",
     defaultProfileId: "",
@@ -598,12 +591,9 @@
     tabHealthButton: document.querySelector('.tab[data-tab="health"]'),
     tabTechnicalButton: document.querySelector('.tab[data-tab="technical"]'),
     tabButtons: Array.from(document.querySelectorAll(".tab")),
-    collectionTableLabel: byId("collectionTableLabel"),
-    tableAutoOption: document.querySelector('#tableSelect option[value="0"]'),
-    table1Option: document.querySelector('#tableSelect option[value="1"]'),
-    table2Option: document.querySelector('#tableSelect option[value="2"]'),
     sensorTableHead: document.querySelector(".table-head"),
     technicalSummary: byId("technicalSummary"),
+    memValidationMessage: byId("memValidationMessage"),
     memHiLabel: byId("memHiLabel"),
     memLoLabel: byId("memLoLabel"),
     memLenLabel: byId("memLenLabel"),
@@ -614,7 +604,6 @@
     diagnosticsHeading: byId("diagnosticsHeading"),
     diagnosticsCardCopy: byId("diagnosticsCardCopy"),
     diagnosticsFooter: byId("diagnosticsFooter"),
-    tableSelect: byId("tableSelect"),
     memHi: byId("memHi"),
     memLo: byId("memLo"),
     memLen: byId("memLen")
@@ -864,7 +853,6 @@
     els.profileLabel.textContent = t("profileLabel");
     els.profileHint.textContent = t("profileHint");
     els.languageSelect.value = state.locale;
-    els.tableSelect.value = state.collectionTable;
     els.connectBtn.textContent = t("connectEcu");
     els.rebootBtn.textContent = t("rebootEsp32");
     els.refreshBtn.textContent = t("refreshNow");
@@ -873,10 +861,6 @@
     els.tabDtcButton.textContent = t("tabDtc");
     els.tabHealthButton.textContent = t("tabHealth");
     els.tabTechnicalButton.textContent = t("tabTechnical");
-    els.collectionTableLabel.textContent = t("collectionTable");
-    els.tableAutoOption.textContent = t("auto");
-    els.table1Option.textContent = t("table1");
-    els.table2Option.textContent = t("table2");
     if (els.sensorTableHead) {
       const columns = els.sensorTableHead.children;
       columns[0].textContent = t("sensorLabel");
@@ -910,7 +894,6 @@
 
     els.languageSelect.addEventListener("change", onLocaleChange);
     els.profileSelect.addEventListener("change", onProfileChange);
-    els.tableSelect.addEventListener("change", onCollectionTableChange);
 
     els.connectBtn.addEventListener("click", () => {
       const profileId = getPreferredProfileId();
@@ -922,12 +905,15 @@
     els.rebootBtn.addEventListener("click", rebootEsp32);
     els.refreshBtn.addEventListener("click", () => pollStatus(true));
     els.technicalToggleBtn.addEventListener("click", toggleTechnicalMode);
-    els.loadSensorsBtn.addEventListener("click", loadSensors);
+    els.loadSensorsBtn.addEventListener("click", () => loadSensors());
     els.readErrorsBtn.addEventListener("click", loadErrors);
     els.clearErrorsBtn.addEventListener("click", clearErrors);
-    els.loadHealthBtn.addEventListener("click", loadHealth);
+    els.loadHealthBtn.addEventListener("click", () => loadHealth());
     els.readMemoryBtn.addEventListener("click", loadMemory);
     els.loadCatalogBtn.addEventListener("click", loadCatalog);
+    [els.memHi, els.memLo, els.memLen].forEach((input) => {
+      input.addEventListener("input", clearMemoryValidation);
+    });
   }
 
   async function initialize() {
@@ -1049,12 +1035,6 @@
     schedulePolling();
   }
 
-  function onCollectionTableChange() {
-    state.collectionTable = els.tableSelect.value;
-    localStorage.setItem(storageKeys.prefCollectionTable, state.collectionTable);
-    renderSectionMeta();
-  }
-
   function onProfileChange() {
     const nextProfileId = els.profileSelect.value;
     if (!findProfileById(nextProfileId)) {
@@ -1068,11 +1048,17 @@
 
   function renderTabs() {
     els.tabButtons.forEach((button) => {
-      button.classList.toggle("active", button.dataset.tab === state.activeTab);
+      const selected = button.dataset.tab === state.activeTab;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-selected", selected ? "true" : "false");
+      button.tabIndex = selected ? 0 : -1;
     });
 
     ["live", "dtc", "health", "technical"].forEach((name) => {
-      byId(`tab-${name}`).classList.toggle("section-hidden", state.activeTab !== name);
+      const panel = byId(`tab-${name}`);
+      const selected = state.activeTab === name;
+      panel.classList.toggle("section-hidden", !selected);
+      panel.hidden = !selected;
     });
   }
 
@@ -1597,8 +1583,7 @@
   }
 
   async function loadSensors(silent) {
-    const table = encodeURIComponent(els.tableSelect.value);
-    await runAction(`/api/sensors/collection?table=${table}`, {}, (payload) => {
+    await runAction("/api/sensors/collection", {}, (payload) => {
       setDataEntry("live", payload, {
         storageKey: getLocalizedStorageKey(storageKeys.cacheLive),
         ttlMs: dataTtls.live,
@@ -1626,6 +1611,10 @@
   }
 
   async function clearErrors() {
+    if (!window.confirm(t("clearDtcConfirm"))) {
+      return;
+    }
+
     const payload = await runAction("/api/errors/clear", { method: "POST" }, (payload) => {
       setMessage(t("clearDtcResponse", { frame: payload.packet ? payload.packet.frame : "?" }), "ok");
     });
@@ -1652,6 +1641,17 @@
   }
 
   async function loadMemory() {
+    const fields = [
+      { input: els.memHi, label: els.memHiLabel },
+      { input: els.memLo, label: els.memLoLabel },
+      { input: els.memLen, label: els.memLenLabel }
+    ];
+    const firstInvalid = fields.find(({ input, label }) => !validateMemoryField(input, label));
+    if (firstInvalid) {
+      firstInvalid.input.focus();
+      return;
+    }
+
     const hi = encodeURIComponent(els.memHi.value.trim());
     const lo = encodeURIComponent(els.memLo.value.trim());
     const len = encodeURIComponent(els.memLen.value.trim());
@@ -1854,6 +1854,37 @@
   function setMessage(text, tone) {
     els.messageBox.className = `message ${tone || ""}`.trim();
     els.messageBox.textContent = text;
+  }
+
+  function clearMemoryValidation() {
+    [els.memHi, els.memLo, els.memLen].forEach((input) => {
+      input.removeAttribute("aria-invalid");
+      input.setCustomValidity("");
+    });
+    if (els.memValidationMessage) {
+      els.memValidationMessage.textContent = "";
+    }
+  }
+
+  function validateMemoryField(input, label) {
+    const value = input.value.trim();
+    const valid = /^0x[0-9a-f]{1,2}$/i.test(value);
+    input.setCustomValidity("");
+    input.removeAttribute("aria-invalid");
+
+    if (valid) {
+      return true;
+    }
+
+    const fieldLabel = label ? label.textContent.trim() : input.id;
+    const message = t("errorMemoryFieldFormat", { field: fieldLabel });
+    input.setAttribute("aria-invalid", "true");
+    input.setCustomValidity(message);
+    if (els.memValidationMessage) {
+      els.memValidationMessage.textContent = message;
+    }
+    setMessage(message, "err");
+    return false;
   }
 
   function describePolling(status) {

@@ -336,10 +336,6 @@ bool ParseBoolValue(const String &text, bool &value) {
     return false;
 }
 
-bool IsValidCollectionTable(uint8_t table) {
-    return table == 0 || table == 1 || table == 2;
-}
-
 void AppendPacketTextEscaped(String &out, const ECUmmpacket &packet) {
     for (uint8_t i = 0; i < packet.data_length; ++i) {
         const char c = static_cast<char>(packet.data[i]);
@@ -768,19 +764,16 @@ String BuildMemoryReadJson(TextLocale locale, uint8_t hi, uint8_t lo,
     return result;
 }
 
-String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
-    uint8_t tableId = requestedTable;
+String BuildCollectionJson(TextLocale locale) {
+    uint8_t tableId = scanner.determineCollectionTable();
     if (tableId == 0) {
-        tableId = scanner.determineCollectionTable();
-        if (tableId == 0) {
-            if (scanner.isBusy()) {
-                return BuildErrorJson(
-                    "busy", locale,
-                    {"Another ECU operation is in flight",
-                     "Outra operacao da ECU esta em andamento"});
-            }
-            tableId = 1;
+        if (scanner.isBusy()) {
+            return BuildErrorJson(
+                "busy", locale,
+                {"Another ECU operation is in flight",
+                 "Outra operacao da ECU esta em andamento"});
         }
+        tableId = 1;
     }
 
     optional<ECUResponseCollection> response = scanner.requestSensorCollection();
@@ -926,7 +919,7 @@ void SendGuardedJson(AsyncWebServerRequest *request, EndpointAccess access,
 
 void PrintSerialHelp() {
     Serial.println("Commands: help, status, connect, health, errors, clear, "
-                   "catalog, f4 [table], mem <hi> <lo> <len>");
+                   "catalog, f4, mem <hi> <lo> <len>");
 }
 
 void HandleSerialCommand(String command) {
@@ -982,12 +975,7 @@ void HandleSerialCommand(String command) {
     }
 
     if (command.startsWith("f4")) {
-        uint8_t table = 0;
-        const int space = command.indexOf(' ');
-        if (space > 0) {
-            ParseByteValue(command.substring(space + 1), table);
-        }
-        Serial.println(BuildCollectionJson(TextLocale::En, table));
+        Serial.println(BuildCollectionJson(TextLocale::En));
         return;
     }
 
@@ -1230,19 +1218,7 @@ void ConfigureRoutes() {
                       return;
                   }
 
-                  uint8_t table = 0;
-                  if (request->hasParam("table")) {
-                      if (!ParseByteValue(request->getParam("table")->value(),
-                                          table) ||
-                          !IsValidCollectionTable(table)) {
-                          SendJson(request, 400,
-                                   BuildErrorJson("invalid_request", locale,
-                                                  {"invalid collection table",
-                                                   "tabela de coleta invalida"}));
-                          return;
-                      }
-                  }
-                  SendJson(request, 200, BuildCollectionJson(locale, table));
+                  SendJson(request, 200, BuildCollectionJson(locale));
               });
 
     server.onNotFound([](AsyncWebServerRequest *request) {
