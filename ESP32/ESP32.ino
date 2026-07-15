@@ -4,6 +4,7 @@ https://github.com/Fabio3rs/Monomotronic-MA1.7-Scanner
 Firmware principal ESP32 para o scanner Bosch Monomotronic MA1.7.
 */
 #include <ESPAsyncWebServer.h>
+#include <DNSServer.h>
 #include <ESPmDNS.h>
 #include <SPIFFS.h>
 #include <WiFiClient.h>
@@ -18,6 +19,7 @@ Firmware principal ESP32 para o scanner Bosch Monomotronic MA1.7.
 
 ESP32Monomotronic scanner;
 AsyncWebServer server(80);
+DNSServer captiveDnsServer;
 String serialCommandBuffer;
 std::atomic<bool> technicalModeEnabled{false};
 
@@ -32,11 +34,37 @@ constexpr size_t kPacketJsonReserve = 160;
 constexpr size_t kSensorJsonReserve = 112;
 constexpr size_t kCatalogEntryJsonReserve = 104;
 constexpr size_t kErrorJsonReserve = 128;
+constexpr uint16_t kCaptiveDnsPort = 53;
+constexpr uint32_t kCaptiveDnsTtlSeconds = 60;
+bool captiveDnsRunning = false;
+bool spiffsMounted = false;
 
 struct LocalizedText {
     const char *en;
     const char *pt_br;
 };
+
+struct KnownEcuProfile {
+    const char *id;
+    uint32_t session_baud;
+    LocalizedText label;
+};
+
+constexpr KnownEcuProfile kKnownEcuProfiles[] = {
+    {"fiat-tipo-1.6ie",
+     4800,
+     {"Fiat Tipo 1.6ie (Bosch MA1.7) - 4800 baud",
+      "Fiat Tipo 1.6ie (Bosch MA1.7) - 4800 baud"}},
+    {"renault-clio-1.6-1999",
+     9600,
+     {"Renault Clio 1.6 (1999) - 9600 baud",
+      "Renault Clio 1.6 (1999) - 9600 baud"}},
+};
+
+constexpr size_t kKnownEcuProfileCount =
+    sizeof(kKnownEcuProfiles) / sizeof(kKnownEcuProfiles[0]);
+
+const KnownEcuProfile *selectedProfile = &kKnownEcuProfiles[0];
 
 TextLocale ResolveLocale(const String &locale) {
     String normalized = locale;
@@ -54,6 +82,28 @@ TextLocale ResolveRequestLocale(AsyncWebServerRequest *request) {
 
 const char *Localize(TextLocale locale, const LocalizedText &text) {
     return locale == TextLocale::PtBr ? text.pt_br : text.en;
+}
+
+const KnownEcuProfile &GetDefaultProfile() { return kKnownEcuProfiles[0]; }
+
+const KnownEcuProfile &GetSelectedProfile() {
+    return selectedProfile != nullptr ? *selectedProfile : GetDefaultProfile();
+}
+
+const KnownEcuProfile *FindKnownProfileById(const String &id) {
+    for (size_t i = 0; i < kKnownEcuProfileCount; ++i) {
+        if (id == kKnownEcuProfiles[i].id) {
+            return &kKnownEcuProfiles[i];
+        }
+    }
+    return nullptr;
+}
+
+void ApplyKnownProfile(const KnownEcuProfile &profile) {
+    ESP32ScannerConfig config = scanner.getConfig();
+    config.session_baud = profile.session_baud;
+    scanner.setConfig(config);
+    selectedProfile = &profile;
 }
 
 void AppendJsonEscaped(String &out, const char *text) {
@@ -105,6 +155,164 @@ void AppendFloat3(String &out, float value) {
 }
 
 void AppendBool(String &out, bool value) { out += value ? "true" : "false"; }
+
+String BuildCaptivePortalUrl() {
+    return String("http://") + WiFi.softAPIP().toString() + "/";
+}
+
+String BuildScannerApUrl() {
+    return BuildCaptivePortalUrl();
+}
+
+bool IsWebUiAvailable() {
+    return spiffsMounted && SPIFFS.exists("/index.html") && SPIFFS.exists("/app.js");
+}
+
+bool IsCaptiveApActive() {
+    const wifi_mode_t mode = WiFi.getMode();
+    return captiveDnsRunning &&
+           (mode == WIFI_AP || mode == WIFI_AP_STA) &&
+           WiFi.softAPIP()[0] != 0;
+}
+
+bool IsApiPath(const String &path) { return path.startsWith("/api/"); }
+
+void AddNoCacheHeaders(AsyncWebServerResponse *response) {
+    if (response == nullptr) {
+        return;
+    }
+    response->addHeader("Cache-Control",
+                        "no-cache, no-store, must-revalidate");
+    response->addHeader("Pragma", "no-cache");
+    response->addHeader("Expires", "-1");
+}
+
+void RedirectToCaptivePortal(AsyncWebServerRequest *request) {
+    const String redirectUrl = BuildCaptivePortalUrl();
+    AsyncWebServerResponse *response =
+        request->beginResponse(302, "text/plain", "");
+    response->addHeader("Location", redirectUrl);
+    AddNoCacheHeaders(response);
+    request->send(response);
+}
+
+void SendCaptivePortalPage(AsyncWebServerRequest *request) {
+    const String redirectUrl = BuildCaptivePortalUrl();
+    String html;
+    html.reserve(1024 + redirectUrl.length());
+    html = "<!doctype html><html><head><meta charset=\"utf-8\">"
+           "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+           "<style>"
+           ":root{color-scheme:light;font-family:Segoe UI,Tahoma,sans-serif;}"
+           "body{margin:0;background:linear-gradient(180deg,#f6f2e8,#f1efe7);color:#1f2a30;}"
+           ".shell{max-width:560px;margin:0 auto;padding:24px 16px;}"
+           ".card{background:#fffaf0;border:1px solid #d8cfbb;border-radius:20px;padding:20px;"
+           "box-shadow:0 12px 30px rgba(40,47,40,.08);}"
+           "h1{margin:0 0 8px;font-size:1.4rem;}p{line-height:1.45;margin:0 0 12px;}"
+           ".meta{color:#6e756f;font-size:.95rem;}.link{display:inline-block;margin-top:8px;"
+           "padding:10px 14px;border-radius:999px;background:#0f6c7c;color:#fff;text-decoration:none;}"
+           ".mono{font-family:Consolas,monospace;word-break:break-all;}</style>"
+           "<meta http-equiv=\"refresh\" content=\"0;url=";
+    html += redirectUrl;
+    html += "\"><title>MA1.7 Scanner</title></head><body><div class=\"shell\"><div class=\"card\">"
+            "<h1>MA1.7 ESP32 Scanner</h1>"
+            "<p>Abrindo a interface web do scanner.</p>"
+            "<p class=\"meta\">Se a pagina principal nao abrir sozinha, toque no botao abaixo.</p>"
+            "<p class=\"mono\">";
+    html += redirectUrl;
+    html += "</p><p><a class=\"link\" href=\"";
+    html += redirectUrl;
+    html += "\">Abrir interface do scanner</a></p></div></div>"
+            "<script>location.replace('";
+    html += redirectUrl;
+    html += "');</script></body></html>";
+
+    AsyncWebServerResponse *response =
+        request->beginResponse(200, "text/html", html);
+    AddNoCacheHeaders(response);
+    request->send(response);
+}
+
+void SendFallbackUiPage(AsyncWebServerRequest *request) {
+    const String apUrl = BuildScannerApUrl();
+    const String apIp = WiFi.softAPIP().toString();
+
+    String html;
+    html.reserve(1600 + apUrl.length() + apIp.length());
+    html = "<!doctype html><html><head><meta charset=\"utf-8\">"
+           "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+           "<title>MA1.7 ESP32 Scanner</title>"
+           "<style>"
+           ":root{font-family:Segoe UI,Tahoma,sans-serif;color-scheme:light;}"
+           "body{margin:0;background:linear-gradient(180deg,#f6f2e8,#f1efe7);color:#1f2a30;}"
+           ".shell{max-width:680px;margin:0 auto;padding:24px 16px 32px;}"
+           ".card{background:#fffaf0;border:1px solid #d8cfbb;border-radius:20px;padding:20px;"
+           "box-shadow:0 12px 30px rgba(40,47,40,.08);}"
+           "h1{margin:0 0 10px;font-size:1.45rem;}h2{margin:18px 0 8px;font-size:1rem;}"
+           "p,li{line-height:1.5;}ul{padding-left:18px;margin:10px 0;}"
+           ".pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#d9efe8;"
+           "color:#0f6c7c;margin:0 8px 8px 0;}.mono{font-family:Consolas,monospace;word-break:break-all;}"
+           ".warn{background:#fff0ed;border:1px solid #efc0b6;color:#aa3d2d;border-radius:14px;padding:12px;}"
+           ".link{display:inline-block;margin-top:10px;padding:10px 14px;border-radius:999px;"
+           "background:#0f6c7c;color:#fff;text-decoration:none;}</style></head><body><div class=\"shell\">"
+           "<div class=\"card\"><h1>MA1.7 ESP32 Scanner</h1>"
+           "<div><span class=\"pill\">SSID ";
+    html += kWifiApSsid;
+    html += "</span><span class=\"pill\">IP ";
+    html += apIp;
+    html += "</span></div>"
+            "<p class=\"warn\">A interface web completa nao foi encontrada no SPIFFS deste ESP32.</p>"
+            "<p>O captive portal e o ponto de acesso estao funcionando, mas os arquivos web ainda nao foram gravados na particao de filesystem.</p>"
+            "<h2>Como corrigir</h2>"
+            "<ul><li>Grave o firmware normalmente.</li>"
+            "<li>Depois rode o upload do filesystem com <span class=\"mono\">pio run -e esp32dev -t uploadfs</span>.</li>"
+            "<li>Recarregue esta pagina apos o upload.</li></ul>"
+            "<h2>Acesso manual</h2><p class=\"mono\">";
+    html += apUrl;
+    html += "</p><a class=\"link\" href=\"";
+    html += apUrl;
+    html += "\">Tentar abrir a pagina principal</a></div></div></body></html>";
+
+    AsyncWebServerResponse *response =
+        request->beginResponse(200, "text/html", html);
+    AddNoCacheHeaders(response);
+    request->send(response);
+}
+
+void SendBootConfigJs(AsyncWebServerRequest *request) {
+    String js;
+    js.reserve(256);
+    js = "window.__MA17_BOOT__={\"apSsid\":\"";
+    AppendJsonEscaped(js, kWifiApSsid);
+    js += "\",\"apIp\":\"";
+    AppendJsonEscaped(js, WiFi.softAPIP().toString().c_str());
+    js += "\",\"apUrl\":\"";
+    AppendJsonEscaped(js, BuildScannerApUrl().c_str());
+    js += "\",\"webUiAvailable\":";
+    AppendBool(js, IsWebUiAvailable());
+    js += "};";
+    AsyncWebServerResponse *response =
+        request->beginResponse(200, "application/javascript", js);
+    AddNoCacheHeaders(response);
+    request->send(response);
+}
+
+void StartCaptiveDns() {
+    captiveDnsServer.stop();
+    captiveDnsServer.setTTL(kCaptiveDnsTtlSeconds);
+    captiveDnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    captiveDnsRunning =
+        captiveDnsServer.start(kCaptiveDnsPort, "*", WiFi.softAPIP());
+
+    if (!captiveDnsRunning) {
+        Serial.println("[DNS] Failed to start captive DNS");
+        return;
+    }
+
+    Serial.println("[DNS] Captive DNS active");
+    Serial.printf("[DNS] Port: %u\n", kCaptiveDnsPort);
+    Serial.printf("[DNS] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+}
 
 bool ParseByteValue(const String &text, uint8_t &value) {
     char *end = nullptr;
@@ -176,6 +384,7 @@ void AppendPacketJson(String &out, const ECUmmpacket &packet) {
 }
 
 void AppendStatusFields(String &out, const ECUStatusSnapshot &status) {
+    const KnownEcuProfile &profile = GetSelectedProfile();
     out += "\"protocol_state\":\"";
     out += status.protocol_state;
     out += "\",\"current_operation\":\"";
@@ -202,6 +411,10 @@ void AppendStatusFields(String &out, const ECUStatusSnapshot &status) {
     AppendSigned(out, status.debug_line);
     out += ",\"technical_mode_enabled\":";
     AppendBool(out, technicalModeEnabled.load(std::memory_order_relaxed));
+    out += ",\"selected_profile_id\":\"";
+    AppendJsonEscaped(out, profile.id);
+    out += "\",\"session_baud\":";
+    AppendUnsigned(out, profile.session_baud);
 }
 
 void AppendResponseMeta(String &out, const ECUStatusSnapshot &status) {
@@ -219,6 +432,14 @@ void AppendResponseMeta(String &out, const ECUStatusSnapshot &status) {
     AppendUnsigned(out, ESP.getFreeHeap());
     out += ",\"wifi_connected\":";
     AppendBool(out, wifiConnected);
+    out += ",\"ap_active\":";
+    AppendBool(out, WiFi.softAPIP()[0] != 0);
+    out += ",\"ap_ssid\":\"";
+    AppendJsonEscaped(out, kWifiApSsid);
+    out += "\",\"ap_ip\":\"";
+    AppendJsonEscaped(out, WiFi.softAPIP().toString().c_str());
+    out += "\",\"web_ui_available\":";
+    AppendBool(out, IsWebUiAvailable());
     out += ",\"wifi_rssi_dbm\":";
     if (wifiConnected) {
         AppendSigned(out, WiFi.RSSI());
@@ -316,6 +537,36 @@ String BuildHealthJson() {
     result += ",\"last_collection_table\":";
     AppendUnsigned(result, health.last_collection_table);
     result += "}}";
+    return result;
+}
+
+String BuildProfilesJson(TextLocale locale) {
+    const ECUStatusSnapshot status = scanner.getStatusSnapshot();
+    String result;
+    result.reserve(kBaseJsonReserve +
+                   kKnownEcuProfileCount * kCatalogEntryJsonReserve);
+    result = "{\"ok\":true,";
+    AppendStatusFields(result, status);
+    AppendResponseMeta(result, status);
+    result += ",\"default_profile_id\":\"";
+    AppendJsonEscaped(result, GetDefaultProfile().id);
+    result += "\",\"profiles\":[";
+
+    for (size_t i = 0; i < kKnownEcuProfileCount; ++i) {
+        if (i > 0) {
+            result += ",";
+        }
+        result += "{";
+        result += "\"id\":\"";
+        AppendJsonEscaped(result, kKnownEcuProfiles[i].id);
+        result += "\",\"label\":\"";
+        AppendJsonEscaped(result, Localize(locale, kKnownEcuProfiles[i].label));
+        result += "\",\"session_baud\":";
+        AppendUnsigned(result, kKnownEcuProfiles[i].session_baud);
+        result += "}";
+    }
+
+    result += "]}";
     return result;
 }
 
@@ -606,7 +857,8 @@ String BuildCollectionJson(TextLocale locale, uint8_t requestedTable) {
     return result;
 }
 
-String BuildConnectJson(TextLocale locale) {
+String BuildConnectJson(TextLocale locale,
+                        const KnownEcuProfile *requestedProfile = nullptr) {
     const ECUStatusSnapshot status = scanner.getStatusSnapshot();
     if (strcmp(status.protocol_state, "handshaking") == 0) {
         return BuildErrorJson("already_connecting", locale,
@@ -618,6 +870,10 @@ String BuildConnectJson(TextLocale locale) {
         return BuildErrorJson("already_running", locale,
                               {"ECU worker is already running",
                                "A thread da ECU ja esta em execucao"});
+    }
+
+    if (requestedProfile != nullptr) {
+        ApplyKnownProfile(*requestedProfile);
     }
 
     const bool started = scanner.init();
@@ -764,11 +1020,35 @@ void HandleSerialCommand(String command) {
 
 void ConfigureRoutes() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/index.html", "text/html");
+        if (IsWebUiAvailable()) {
+            AsyncWebServerResponse *response =
+                request->beginResponse(SPIFFS, "/index.html", "text/html");
+            AddNoCacheHeaders(response);
+            request->send(response);
+            return;
+        }
+        SendFallbackUiPage(request);
     });
 
     server.on("/app.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/app.js", "application/javascript");
+        if (IsWebUiAvailable()) {
+            AsyncWebServerResponse *response =
+                request->beginResponse(SPIFFS, "/app.js",
+                                       "application/javascript");
+            AddNoCacheHeaders(response);
+            request->send(response);
+            return;
+        }
+        AsyncWebServerResponse *response =
+            request->beginResponse(
+                503, "application/javascript",
+                "console.error('MA1.7 web UI unavailable: uploadfs required.');");
+        AddNoCacheHeaders(response);
+        request->send(response);
+    });
+
+    server.on("/boot.js", HTTP_GET, [](AsyncWebServerRequest *request) {
+        SendBootConfigJs(request);
     });
 
     server.on("/ram", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -783,7 +1063,41 @@ void ConfigureRoutes() {
     });
 
     server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request) {
-        SendJson(request, 200, BuildConnectJson(TextLocale::En));
+        const TextLocale locale = ResolveRequestLocale(request);
+        const KnownEcuProfile *profile = nullptr;
+        if (request->hasParam("profile")) {
+            profile = FindKnownProfileById(request->getParam("profile")->value());
+            if (profile == nullptr) {
+                SendJson(request, 400,
+                         BuildErrorJson("invalid_request", locale,
+                                        {"invalid profile",
+                                         "perfil invalido"}));
+                return;
+            }
+        }
+        SendJson(request, 200, BuildConnectJson(locale, profile));
+    });
+
+    server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request) {
+        SendCaptivePortalPage(request);
+    });
+
+    server.on("/gen_204", HTTP_GET, [](AsyncWebServerRequest *request) {
+        SendCaptivePortalPage(request);
+    });
+
+    server.on("/hotspot-detect.html", HTTP_GET,
+              [](AsyncWebServerRequest *request) {
+                  SendCaptivePortalPage(request);
+              });
+
+    server.on("/connecttest.txt", HTTP_GET,
+              [](AsyncWebServerRequest *request) {
+                  SendCaptivePortalPage(request);
+              });
+
+    server.on("/ncsi.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
+        SendCaptivePortalPage(request);
     });
 
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -794,8 +1108,26 @@ void ConfigureRoutes() {
         SendJson(request, 200, BuildHealthJson());
     });
 
+    server.on("/api/config/profiles", HTTP_GET,
+              [](AsyncWebServerRequest *request) {
+                  SendJson(request, 200,
+                           BuildProfilesJson(ResolveRequestLocale(request)));
+              });
+
     server.on("/api/connect", HTTP_POST, [](AsyncWebServerRequest *request) {
-        SendJson(request, 200, BuildConnectJson(ResolveRequestLocale(request)));
+        const TextLocale locale = ResolveRequestLocale(request);
+        const KnownEcuProfile *profile = nullptr;
+        if (request->hasParam("profile")) {
+            profile = FindKnownProfileById(request->getParam("profile")->value());
+            if (profile == nullptr) {
+                SendJson(request, 400,
+                         BuildErrorJson("invalid_request", locale,
+                                        {"invalid profile",
+                                         "perfil invalido"}));
+                return;
+            }
+        }
+        SendJson(request, 200, BuildConnectJson(locale, profile));
     });
 
     server.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest *request) {
@@ -912,12 +1244,31 @@ void ConfigureRoutes() {
                   }
                   SendJson(request, 200, BuildCollectionJson(locale, table));
               });
+
+    server.onNotFound([](AsyncWebServerRequest *request) {
+        const String path = request->url();
+        const auto method = request->method();
+
+        if (IsApiPath(path)) {
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+
+        if (IsCaptiveApActive() &&
+            (method == HTTP_GET || method == HTTP_HEAD)) {
+            RedirectToCaptivePortal(request);
+            return;
+        }
+
+        request->send(404, "text/plain", "Not found");
+    });
 }
 } // namespace
 
 void setup() {
     const ESP32ScannerConfig config{};
     scanner.setConfig(config);
+    ApplyKnownProfile(GetDefaultProfile());
 
     pinMode(config.tx_init_pin, OUTPUT);
     pinMode(config.aux_init_pin, OUTPUT);
@@ -927,19 +1278,29 @@ void setup() {
 
     serialCommandBuffer.reserve(128);
 
-    if (!SPIFFS.begin()) {
+    spiffsMounted = SPIFFS.begin();
+    if (!spiffsMounted) {
         Serial.println("An error occurred while mounting SPIFFS");
+    } else if (!IsWebUiAvailable()) {
+        Serial.println("[SPIFFS] Mounted, but /index.html or /app.js is missing");
     }
 
     WiFi.begin(kWifiStaSsid, kWifiStaPassword);
     digitalWrite(LED_BUILTIN, LOW);
 
     Serial.println("Setting AP (Access Point)...");
-    WiFi.softAP(kWifiApSsid, kWifiApPassword);
+    const bool apStarted = WiFi.softAP(kWifiApSsid, kWifiApPassword);
+    if (!apStarted) {
+        Serial.println("[AP] Failed to start softAP");
+    }
 
     const IPAddress ip = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(ip);
+
+    if (apStarted) {
+        StartCaptiveDns();
+    }
 
     ConfigureRoutes();
     server.begin();
@@ -949,6 +1310,10 @@ void setup() {
 }
 
 void loop() {
+    if (captiveDnsRunning) {
+        captiveDnsServer.processNextRequest();
+    }
+
     while (Serial.available() > 0) {
         const char c = static_cast<char>(Serial.read());
         if (c == '\n' || c == '\r') {

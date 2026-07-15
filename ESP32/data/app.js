@@ -2,8 +2,48 @@
   const translations = {
     en: {
       pageTitle: "MA1.7 ESP32 Scanner",
-      heroSubtitle: "Single-request browser client with protocol-state gating.",
+      topbarSubtitle: "Scanner portal",
+      heroSubtitle: "Connect over the scanner access point, then use a single browser session for safe ECU reads.",
+      onboardingHeading: "How to access the scanner portal",
+      step1Title: "Join the scanner Wi-Fi",
+      step1Copy: "Connect to the access point exposed by the ESP32 scanner.",
+      step2Title: "Open the local page",
+      step2Copy: "If the captive portal does not open by itself, browse to the local address shown here.",
+      step3Title: "Connect the ECU",
+      step3Copy: "Use the button below, then wait until the scanner reports that it is ready for reads.",
+      primaryStatusHeading: "Scanner Status",
+      statusCardCopy: "Use this area to verify the Wi-Fi link and ECU readiness before reading data.",
+      connectionHeading: "Connect ECU",
+      connectionLead: "Choose the vehicle profile first, then start the ECU session.",
+      primaryWaiting: "Waiting for scanner status",
+      primaryWaitingDetail: "Checking the ESP32 access point and the ECU link.",
+      primaryPortalReady: "Scanner portal ready",
+      primaryEcuDisconnected: "ECU disconnected",
+      primaryHandshaking: "Handshake in progress",
+      primaryReady: "Ready for reads",
+      primaryBusy: "Scanner busy",
+      primaryError: "Communication error",
+      primaryOffline: "Scanner offline",
+      primaryPortalDetail: "The ESP32 web portal is reachable. Connect the ECU when you are ready.",
+      primaryDisconnectedDetail: "The Wi-Fi link is up, but the ECU session has not started yet.",
+      primaryHandshakingDetail: "The scanner is initializing the ECU session. Wait for the ready state.",
+      primaryReadyDetail: "The scanner can accept sensor, DTC, and health reads now.",
+      primaryBusyDetail: "Another ECU operation is running. Wait for it to finish before sending a new one.",
+      primaryErrorDetail: "The last ECU interaction ended in an error state. Refresh status and retry after checking wiring.",
+      primaryOfflineDetail: "The browser cannot reach the ESP32 right now. Reconnect to the scanner Wi-Fi and refresh.",
+      primaryRebooting: "ESP32 rebooting",
+      primaryRebootingDetail: "Waiting for the scanner to come back after a reboot request.",
+      scannerPortalReady: "Scanner portal ready",
+      apInfo: "Wi-Fi: {ssid} | Local page: {url}",
+      apInfoNoSsid: "Local page: {url}",
+      networkHintOnline: "If the portal did not open automatically, use the local address shown above.",
+      networkHintOffline: "If the page stops updating, reconnect to the scanner Wi-Fi and refresh.",
       languageLabel: "Language",
+      profileLabel: "ECU profile",
+      profileHint: "The selected profile defines the connection baud automatically.",
+      profileBaud: "Baud: {baud}",
+      profileBaudUnknown: "Baud: --",
+      loadingProfiles: "Loading profiles...",
       noLiveData: "No live data yet",
       linkIdle: "Link idle",
       linkOnline: "Link {ms} ms | {age}",
@@ -21,6 +61,8 @@
       pollingStatusOnly: "Polling status only",
       rebootingEsp32: "ESP32 rebooting. Waiting for it to come back.",
       waitingFirstPoll: "Waiting for first status poll.",
+      waitingWifiReconnect: "Reconnect to the scanner Wi-Fi if this page does not update.",
+      bootingStatus: "Starting scanner and Wi-Fi access point.",
       sessionStatus: "Session Status",
       tabLive: "Live",
       tabDtc: "DTC",
@@ -41,6 +83,9 @@
       readMemory: "Read memory",
       loadSensorCatalog: "Load sensor catalog",
       currentProtocolState: "Current Protocol State",
+      diagnosticsHeading: "Connection Diagnostics",
+      diagnosticsCardCopy: "Use this section when the portal is reachable but the ECU session is not.",
+      diagnosticsFooter: "Use this to separate Wi-Fi portal issues from ECU session issues.",
       sensorColumnRaw: "Raw",
       sensorColumnValue: "Value",
       statusUnavailable: "Status unavailable.",
@@ -53,6 +98,8 @@
       metricConnected: "Connected",
       metricReady: "Ready",
       metricBusy: "Busy",
+      metricProfile: "Profile",
+      metricBaud: "Baud",
       metricErrorCode: "Error code",
       yes: "yes",
       no: "no",
@@ -83,6 +130,7 @@
       entries: "entries",
       packet: "Packet",
       statusRefreshed: "Status refreshed from ESP32.",
+      connectionRestored: "Connection to the scanner was restored.",
       requestStarted: "Sending {operation}...",
       requestFinished: "{operation} completed in {ms} ms.",
       rebootConfirm: "Reboot the ESP32 now?",
@@ -97,7 +145,40 @@
       technicalDisabled: "Technical mode disabled on ESP32.",
       browserRequestSuppressed: "Browser request suppressed: another operation is already in flight.",
       networkError: "Network error: {message}",
+      networkErrorRecovery: "Check that this phone is still connected to the scanner Wi-Fi, then refresh the page.",
+      errorBusy: "The scanner is still handling another request. Wait for it to finish and try again.",
+      errorAlreadyConnecting: "The ECU handshake is already in progress. Wait for the scanner to finish connecting.",
+      errorAlreadyRunning: "The ECU worker is already running. Refresh status before trying another connect.",
+      errorNotReady: "The ECU is not ready yet. Connect first or wait until the handshake completes.",
+      errorTechnicalModeDisabled: "Enable technical mode inside the Technical tab before using this action.",
+      errorInvalidRequest: "The request parameters are invalid for this endpoint.",
+      errorReadFailed: "The read did not complete. Check ECU wiring and retry.",
+      errorConnectFailed: "The scanner could not start the ECU session. Check ECU power, wiring, and ignition state.",
+      errorCollectionFailed: "The live sensor read failed. Retry after the scanner returns to ready.",
+      errorMemoryReadFailed: "The technical memory read failed. Recheck the address fields and retry.",
       requestFailed: "Request failed.",
+      diagnosticsWaiting: "Waiting for scanner diagnostics.",
+      diagnosticsAp: "AP",
+      diagnosticsPortal: "Portal",
+      diagnosticsSession: "ECU session",
+      diagnosticsNetwork: "Frontend link",
+      diagnosticsLastError: "Last error",
+      diagnosticsLastPacket: "Last packet",
+      diagnosticsSnapshot: "Snapshot",
+      diagnosticsOnline: "online",
+      diagnosticsOffline: "offline",
+      diagnosticsAvailable: "available",
+      diagnosticsUnavailable: "fallback",
+      diagnosticsSessionDisconnected: "disconnected",
+      diagnosticsSessionConnecting: "connecting",
+      diagnosticsSessionReady: "ready",
+      diagnosticsSessionBusy: "busy",
+      diagnosticsSessionError: "error",
+      diagnosticsSessionUnknown: "unknown",
+      diagnosticsSnapshotLive: "live",
+      diagnosticsSnapshotCached: "cached",
+      diagnosticsSnapshotStale: "stale",
+      diagnosticsSnapshotEmpty: "empty",
       handshakeActive: "Handshake active: polling status only",
       rebootPendingPoll: "Reboot in progress: polling for ESP32 return",
       disconnectedReadyToConnect: "Disconnected: reconnect is available",
@@ -154,8 +235,48 @@
     },
     "pt-BR": {
       pageTitle: "Scanner ESP32 MA1.7",
-      heroSubtitle: "Cliente web de requisicao unica com bloqueio por estado do protocolo.",
+      topbarSubtitle: "Portal do scanner",
+      heroSubtitle: "Conecte pelo ponto de acesso do scanner e use uma unica sessao web para leituras seguras da ECU.",
+      onboardingHeading: "Como acessar o portal do scanner",
+      step1Title: "Entre no Wi-Fi do scanner",
+      step1Copy: "Conecte ao ponto de acesso exposto pelo ESP32 do scanner.",
+      step2Title: "Abra a pagina local",
+      step2Copy: "Se o captive portal nao abrir sozinho, navegue para o endereco local mostrado aqui.",
+      step3Title: "Conecte a ECU",
+      step3Copy: "Use o botao abaixo e aguarde o scanner informar que esta pronto para leituras.",
+      primaryStatusHeading: "Status do scanner",
+      statusCardCopy: "Use esta area para confirmar o link Wi-Fi e a prontidao da ECU antes de ler dados.",
+      connectionHeading: "Conectar ECU",
+      connectionLead: "Escolha primeiro o perfil do veiculo e depois inicie a sessao com a ECU.",
+      primaryWaiting: "Aguardando status do scanner",
+      primaryWaitingDetail: "Verificando o ponto de acesso do ESP32 e o link com a ECU.",
+      primaryPortalReady: "Portal do scanner pronto",
+      primaryEcuDisconnected: "ECU desconectada",
+      primaryHandshaking: "Handshake em andamento",
+      primaryReady: "Pronto para leituras",
+      primaryBusy: "Scanner ocupado",
+      primaryError: "Erro de comunicacao",
+      primaryOffline: "Scanner offline",
+      primaryPortalDetail: "O portal web do ESP32 esta acessivel. Conecte a ECU quando quiser iniciar a sessao.",
+      primaryDisconnectedDetail: "O link Wi-Fi esta ativo, mas a sessao com a ECU ainda nao foi iniciada.",
+      primaryHandshakingDetail: "O scanner esta inicializando a sessao com a ECU. Aguarde o estado pronto.",
+      primaryReadyDetail: "O scanner pode aceitar leituras de sensores, DTC e saude agora.",
+      primaryBusyDetail: "Outra operacao da ECU esta em andamento. Aguarde terminar antes de enviar uma nova.",
+      primaryErrorDetail: "A ultima interacao com a ECU terminou em erro. Atualize o status e confira a fiacao.",
+      primaryOfflineDetail: "O navegador nao consegue falar com o ESP32 agora. Reconecte ao Wi-Fi do scanner e atualize a pagina.",
+      primaryRebooting: "ESP32 reiniciando",
+      primaryRebootingDetail: "Aguardando o scanner voltar depois do pedido de reinicio.",
+      scannerPortalReady: "Portal do scanner pronto",
+      apInfo: "Wi-Fi: {ssid} | Pagina local: {url}",
+      apInfoNoSsid: "Pagina local: {url}",
+      networkHintOnline: "Se o portal nao abriu automaticamente, use o endereco local mostrado acima.",
+      networkHintOffline: "Se a pagina parar de atualizar, reconecte ao Wi-Fi do scanner e atualize.",
       languageLabel: "Idioma",
+      profileLabel: "Perfil da ECU",
+      profileHint: "O perfil selecionado define automaticamente o baud da conexao.",
+      profileBaud: "Baud: {baud}",
+      profileBaudUnknown: "Baud: --",
+      loadingProfiles: "Carregando perfis...",
       noLiveData: "Sem dados ao vivo ainda",
       linkIdle: "Link ocioso",
       linkOnline: "Link {ms} ms | {age}",
@@ -173,6 +294,8 @@
       pollingStatusOnly: "Consultando apenas o status",
       rebootingEsp32: "ESP32 reiniciando. Aguardando ele voltar.",
       waitingFirstPoll: "Aguardando a primeira consulta de status.",
+      waitingWifiReconnect: "Reconecte ao Wi-Fi do scanner se esta pagina nao atualizar.",
+      bootingStatus: "Iniciando scanner e ponto de acesso Wi-Fi.",
       sessionStatus: "Status da sessao",
       tabLive: "Ao vivo",
       tabDtc: "DTC",
@@ -193,6 +316,9 @@
       readMemory: "Ler memoria",
       loadSensorCatalog: "Carregar catalogo de sensores",
       currentProtocolState: "Estado atual do protocolo",
+      diagnosticsHeading: "Diagnostico de conexao",
+      diagnosticsCardCopy: "Use esta secao quando o portal estiver acessivel, mas a sessao com a ECU nao estiver.",
+      diagnosticsFooter: "Use isto para separar problemas do portal Wi-Fi de problemas da sessao com a ECU.",
       sensorColumnRaw: "Bruto",
       sensorColumnValue: "Valor",
       statusUnavailable: "Status indisponivel.",
@@ -205,6 +331,8 @@
       metricConnected: "Conectado",
       metricReady: "Pronto",
       metricBusy: "Ocupado",
+      metricProfile: "Perfil",
+      metricBaud: "Baud",
       metricErrorCode: "Codigo de erro",
       yes: "sim",
       no: "nao",
@@ -235,6 +363,7 @@
       entries: "entradas",
       packet: "Pacote",
       statusRefreshed: "Status atualizado a partir do ESP32.",
+      connectionRestored: "A conexao com o scanner foi restabelecida.",
       requestStarted: "Enviando {operation}...",
       requestFinished: "{operation} concluida em {ms} ms.",
       rebootConfirm: "Reiniciar o ESP32 agora?",
@@ -249,7 +378,40 @@
       technicalDisabled: "Modo tecnico desabilitado no ESP32.",
       browserRequestSuppressed: "Requisicao do navegador suprimida: outra operacao ja esta em andamento.",
       networkError: "Erro de rede: {message}",
+      networkErrorRecovery: "Confira se este celular ainda esta conectado ao Wi-Fi do scanner e atualize a pagina.",
+      errorBusy: "O scanner ainda esta processando outra requisicao. Aguarde terminar e tente de novo.",
+      errorAlreadyConnecting: "O handshake com a ECU ja esta em andamento. Aguarde o scanner concluir a conexao.",
+      errorAlreadyRunning: "A thread da ECU ja esta em execucao. Atualize o status antes de tentar conectar de novo.",
+      errorNotReady: "A ECU ainda nao esta pronta. Conecte primeiro ou aguarde o fim do handshake.",
+      errorTechnicalModeDisabled: "Ative o modo tecnico dentro da aba Tecnico antes de usar esta acao.",
+      errorInvalidRequest: "Os parametros enviados sao invalidos para este endpoint.",
+      errorReadFailed: "A leitura nao terminou corretamente. Confira a fiacao da ECU e tente novamente.",
+      errorConnectFailed: "O scanner nao conseguiu iniciar a sessao com a ECU. Confira alimentacao, fiacao e ignicao.",
+      errorCollectionFailed: "A leitura de sensores ao vivo falhou. Tente de novo quando o scanner voltar ao estado pronto.",
+      errorMemoryReadFailed: "A leitura tecnica de memoria falhou. Revise os campos de endereco e tente novamente.",
       requestFailed: "Falha na requisicao.",
+      diagnosticsWaiting: "Aguardando diagnostico do scanner.",
+      diagnosticsAp: "AP",
+      diagnosticsPortal: "Portal",
+      diagnosticsSession: "Sessao ECU",
+      diagnosticsNetwork: "Link do navegador",
+      diagnosticsLastError: "Ultimo erro",
+      diagnosticsLastPacket: "Ultimo pacote",
+      diagnosticsSnapshot: "Snapshot",
+      diagnosticsOnline: "online",
+      diagnosticsOffline: "offline",
+      diagnosticsAvailable: "disponivel",
+      diagnosticsUnavailable: "fallback",
+      diagnosticsSessionDisconnected: "desconectada",
+      diagnosticsSessionConnecting: "conectando",
+      diagnosticsSessionReady: "pronta",
+      diagnosticsSessionBusy: "ocupada",
+      diagnosticsSessionError: "erro",
+      diagnosticsSessionUnknown: "desconhecida",
+      diagnosticsSnapshotLive: "ao vivo",
+      diagnosticsSnapshotCached: "cache",
+      diagnosticsSnapshotStale: "desatualizado",
+      diagnosticsSnapshotEmpty: "vazio",
       handshakeActive: "Handshake ativo: consultando apenas o status",
       rebootPendingPoll: "Reinicio em andamento: consultando o retorno do ESP32",
       disconnectedReadyToConnect: "Desconectado: reconexao disponivel",
@@ -320,6 +482,7 @@
     prefLocale: "ma17.pref.locale",
     prefTab: "ma17.pref.activeTab",
     prefCollectionTable: "ma17.pref.collectionTable",
+    prefProfile: "ma17.pref.profile",
     cacheStatus: "ma17.cache.status",
     cacheLive: "ma17.cache.live",
     cacheDtc: "ma17.cache.dtc",
@@ -331,6 +494,7 @@
   const initialLocale = detectInitialLocale();
   const initialActiveTab = localStorage.getItem(storageKeys.prefTab) || "live";
   const initialCollectionTable = localStorage.getItem(storageKeys.prefCollectionTable) || "0";
+  const initialProfileId = localStorage.getItem(storageKeys.prefProfile) || "";
   const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale));
   const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale));
   const initialDtcEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, initialLocale));
@@ -342,6 +506,10 @@
     activeTab: initialActiveTab,
     locale: initialLocale,
     collectionTable: initialCollectionTable,
+    selectedProfileId: initialProfileId,
+    backendSelectedProfileId: "",
+    defaultProfileId: "",
+    profiles: [],
     technicalMode: Boolean(
       getEntryPayload(initialStatusEntry) &&
       getEntryPayload(initialStatusEntry).technical_mode_enabled
@@ -354,6 +522,10 @@
     backendReachable: false,
     activeRequestLabel: "",
     pollTimer: null,
+    pendingConnect: false,
+    hasReceivedStatus: false,
+    lastErrorCode: "",
+    lastErrorMessage: "",
     data: {
       status: initialStatusEntry,
       live: initialLiveEntry,
@@ -363,14 +535,37 @@
     }
   };
 
+  const bootConfig = normalizeBootConfig(window.__MA17_BOOT__ || {});
+
   const els = {
+    topbarTitle: byId("topbarTitle"),
+    topbarSubtitle: byId("topbarSubtitle"),
     title: document.querySelector(".title"),
     subtitle: document.querySelector(".subtitle"),
+    primaryBadge: byId("primaryBadge"),
     liveBadge: byId("liveBadge"),
     netBadge: byId("netBadge"),
     cacheBadge: byId("cacheBadge"),
+    apInfo: byId("apInfo"),
+    onboardingHeading: byId("onboardingHeading"),
+    step1Title: byId("step1Title"),
+    step1Copy: byId("step1Copy"),
+    step2Title: byId("step2Title"),
+    step2Copy: byId("step2Copy"),
+    step3Title: byId("step3Title"),
+    step3Copy: byId("step3Copy"),
+    primaryStatusHeading: byId("primaryStatusHeading"),
+    statusCardCopy: byId("statusCardCopy"),
+    connectionHeading: byId("connectionHeading"),
+    connectionLead: byId("connectionLead"),
+    primaryStatus: byId("primaryStatus"),
+    primaryStatusDetail: byId("primaryStatusDetail"),
+    networkHint: byId("networkHint"),
     pollInfo: byId("pollInfo"),
+    profileBaudChip: byId("profileBaudChip"),
+    profileHint: byId("profileHint"),
     messageBox: byId("messageBox"),
+    diagnosticsSummary: byId("diagnosticsSummary"),
     statusGrid: byId("statusGrid"),
     stateSummary: byId("stateSummary"),
     cacheSummary: byId("cacheSummary"),
@@ -395,25 +590,30 @@
     loadCatalogBtn: byId("loadCatalogBtn"),
     languageLabel: byId("languageLabel"),
     languageSelect: byId("languageSelect"),
-    sessionStatusHeading: document.querySelector("main .card h2"),
+    profileLabel: byId("profileLabel"),
+    profileSelect: byId("profileSelect"),
+    sessionStatusHeading: byId("sessionStatusHeading"),
     tabLiveButton: document.querySelector('.tab[data-tab="live"]'),
     tabDtcButton: document.querySelector('.tab[data-tab="dtc"]'),
     tabHealthButton: document.querySelector('.tab[data-tab="health"]'),
     tabTechnicalButton: document.querySelector('.tab[data-tab="technical"]'),
     tabButtons: Array.from(document.querySelectorAll(".tab")),
-    collectionTableLabel: document.querySelector('label[for="tableSelect"]'),
+    collectionTableLabel: byId("collectionTableLabel"),
     tableAutoOption: document.querySelector('#tableSelect option[value="0"]'),
     table1Option: document.querySelector('#tableSelect option[value="1"]'),
     table2Option: document.querySelector('#tableSelect option[value="2"]'),
     sensorTableHead: document.querySelector(".table-head"),
-    technicalSummary: byId("tab-technical").querySelector(".small"),
-    memHiLabel: document.querySelector('label[for="memHi"]'),
-    memLoLabel: document.querySelector('label[for="memLo"]'),
-    memLenLabel: document.querySelector('label[for="memLen"]'),
-    currentProtocolHeading: document.querySelector("aside .card h3"),
-    currentProtocolFooter: document.querySelectorAll(".footer-note")[0],
-    cachedSnapshotHeading: document.querySelectorAll("aside .card h3")[1],
-    cachedSnapshotFooter: document.querySelectorAll(".footer-note")[1],
+    technicalSummary: byId("technicalSummary"),
+    memHiLabel: byId("memHiLabel"),
+    memLoLabel: byId("memLoLabel"),
+    memLenLabel: byId("memLenLabel"),
+    currentProtocolHeading: byId("currentProtocolHeading"),
+    currentProtocolFooter: byId("currentProtocolFooter"),
+    cachedSnapshotHeading: byId("cachedSnapshotHeading"),
+    cachedSnapshotFooter: byId("cachedSnapshotFooter"),
+    diagnosticsHeading: byId("diagnosticsHeading"),
+    diagnosticsCardCopy: byId("diagnosticsCardCopy"),
+    diagnosticsFooter: byId("diagnosticsFooter"),
     tableSelect: byId("tableSelect"),
     memHi: byId("memHi"),
     memLo: byId("memLo"),
@@ -421,11 +621,26 @@
   };
 
   bindEvents();
-  renderAll();
-  pollStatus(true);
+  initialize();
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function normalizeBootConfig(raw) {
+    const cfg = raw && typeof raw === "object" ? raw : {};
+    const apUrl = typeof cfg.apUrl === "string" && cfg.apUrl
+      ? cfg.apUrl
+      : `${window.location.protocol}//${window.location.host}/`;
+    const apIp = typeof cfg.apIp === "string" && cfg.apIp
+      ? cfg.apIp
+      : window.location.hostname;
+    return {
+      apSsid: typeof cfg.apSsid === "string" ? cfg.apSsid : "",
+      apIp,
+      apUrl,
+      webUiAvailable: cfg.webUiAvailable !== false
+    };
   }
 
   function normalizeLocale(locale) {
@@ -630,9 +845,24 @@
   function setStaticText() {
     document.documentElement.lang = state.locale;
     document.title = t("pageTitle");
+    els.topbarTitle.textContent = t("pageTitle");
+    els.topbarSubtitle.textContent = t("topbarSubtitle");
     els.title.textContent = t("pageTitle");
     els.subtitle.textContent = t("heroSubtitle");
+    els.onboardingHeading.textContent = t("onboardingHeading");
+    els.step1Title.textContent = t("step1Title");
+    els.step1Copy.textContent = t("step1Copy");
+    els.step2Title.textContent = t("step2Title");
+    els.step2Copy.textContent = t("step2Copy");
+    els.step3Title.textContent = t("step3Title");
+    els.step3Copy.textContent = t("step3Copy");
+    els.primaryStatusHeading.textContent = t("primaryStatusHeading");
+    els.statusCardCopy.textContent = t("statusCardCopy");
+    els.connectionHeading.textContent = t("connectionHeading");
+    els.connectionLead.textContent = t("connectionLead");
     els.languageLabel.textContent = t("languageLabel");
+    els.profileLabel.textContent = t("profileLabel");
+    els.profileHint.textContent = t("profileHint");
     els.languageSelect.value = state.locale;
     els.tableSelect.value = state.collectionTable;
     els.connectBtn.textContent = t("connectEcu");
@@ -666,6 +896,11 @@
     els.currentProtocolFooter.textContent = t("footerActiveRequest");
     els.cachedSnapshotHeading.textContent = t("cachedSnapshot");
     els.cachedSnapshotFooter.textContent = t("footerCache");
+    els.diagnosticsHeading.textContent = t("diagnosticsHeading");
+    els.diagnosticsCardCopy.textContent = t("diagnosticsCardCopy");
+    els.diagnosticsFooter.textContent = t("diagnosticsFooter");
+    els.apInfo.textContent = buildApInfoText();
+    renderProfileOptions();
   }
 
   function bindEvents() {
@@ -674,10 +909,16 @@
     });
 
     els.languageSelect.addEventListener("change", onLocaleChange);
+    els.profileSelect.addEventListener("change", onProfileChange);
     els.tableSelect.addEventListener("change", onCollectionTableChange);
 
-    els.connectBtn.addEventListener("click", () =>
-      runAction("/api/connect", { method: "POST" }, onStatusResponse));
+    els.connectBtn.addEventListener("click", () => {
+      const profileId = getPreferredProfileId();
+      const connectUrl = profileId
+        ? `/api/connect?profile=${encodeURIComponent(profileId)}`
+        : "/api/connect";
+      return runAction(connectUrl, { method: "POST" }, onStatusResponse);
+    });
     els.rebootBtn.addEventListener("click", rebootEsp32);
     els.refreshBtn.addEventListener("click", () => pollStatus(true));
     els.technicalToggleBtn.addEventListener("click", toggleTechnicalMode);
@@ -687,6 +928,118 @@
     els.loadHealthBtn.addEventListener("click", loadHealth);
     els.readMemoryBtn.addEventListener("click", loadMemory);
     els.loadCatalogBtn.addEventListener("click", loadCatalog);
+  }
+
+  async function initialize() {
+    renderAll();
+    await loadProfiles();
+    await pollStatus(true);
+  }
+
+  function normalizeProfiles(profiles) {
+    if (!Array.isArray(profiles)) {
+      return [];
+    }
+
+    return profiles.filter((profile) =>
+      profile &&
+      typeof profile.id === "string" &&
+      profile.id &&
+      typeof profile.label === "string" &&
+      Number.isFinite(Number(profile.session_baud))
+    ).map((profile) => ({
+      id: profile.id,
+      label: profile.label,
+      session_baud: Number(profile.session_baud)
+    }));
+  }
+
+  function findProfileById(profileId) {
+    if (!profileId) {
+      return null;
+    }
+    return state.profiles.find((profile) => profile.id === profileId) || null;
+  }
+
+  function getPreferredProfileId() {
+    if (findProfileById(state.selectedProfileId)) {
+      return state.selectedProfileId;
+    }
+    if (findProfileById(state.backendSelectedProfileId)) {
+      return state.backendSelectedProfileId;
+    }
+    if (findProfileById(state.defaultProfileId)) {
+      return state.defaultProfileId;
+    }
+    return state.profiles.length ? state.profiles[0].id : "";
+  }
+
+  function getDisplayedProfileId() {
+    if (findProfileById(state.backendSelectedProfileId)) {
+      return state.backendSelectedProfileId;
+    }
+    return getPreferredProfileId();
+  }
+
+  function setSelectedProfileId(profileId, persist) {
+    state.selectedProfileId = profileId || "";
+    if (!persist) {
+      return;
+    }
+
+    try {
+      if (state.selectedProfileId) {
+        localStorage.setItem(storageKeys.prefProfile, state.selectedProfileId);
+      } else {
+        localStorage.removeItem(storageKeys.prefProfile);
+      }
+    } catch (_) {
+      // Ignore storage failures.
+    }
+  }
+
+  function renderProfileOptions() {
+    if (!els.profileSelect) {
+      return;
+    }
+
+    if (!state.profiles.length) {
+      els.profileSelect.innerHTML =
+        `<option value="">${escapeHtml(t("loadingProfiles"))}</option>`;
+      els.profileSelect.value = "";
+      return;
+    }
+
+    const selectedId = getDisplayedProfileId();
+    els.profileSelect.innerHTML = state.profiles.map((profile) => `
+      <option value="${escapeHtml(profile.id)}">${escapeHtml(profile.label)}</option>
+    `).join("");
+    els.profileSelect.value = selectedId;
+  }
+
+  async function loadProfiles(silent) {
+    try {
+      const response = await fetch(buildApiUrl("/api/config/profiles"));
+      const payload = await response.json();
+      if (!response.ok || payload.ok === false) {
+        if (!silent) {
+          handleErrorPayload(payload);
+        }
+        return;
+      }
+
+      state.profiles = normalizeProfiles(payload.profiles);
+      state.defaultProfileId =
+        typeof payload.default_profile_id === "string" ? payload.default_profile_id : "";
+      state.backendSelectedProfileId =
+        typeof payload.selected_profile_id === "string" ? payload.selected_profile_id : "";
+      setSelectedProfileId(getPreferredProfileId(), true);
+      renderAll();
+    } catch (error) {
+      if (!silent) {
+        setMessage(`${t("networkError", { message: error.message })}\n${t("networkErrorRecovery")}`, "err");
+      }
+    }
   }
 
   function setTab(tab) {
@@ -700,6 +1053,17 @@
     state.collectionTable = els.tableSelect.value;
     localStorage.setItem(storageKeys.prefCollectionTable, state.collectionTable);
     renderSectionMeta();
+  }
+
+  function onProfileChange() {
+    const nextProfileId = els.profileSelect.value;
+    if (!findProfileById(nextProfileId)) {
+      renderProfileOptions();
+      return;
+    }
+
+    setSelectedProfileId(nextProfileId, true);
+    renderAll();
   }
 
   function renderTabs() {
@@ -716,22 +1080,51 @@
     setStaticText();
     renderTabs();
     renderStatus();
+    renderPrimaryStatus();
+    renderProfileSummary();
     renderNetworkBadge();
     renderCacheSummary();
+    renderDiagnostics();
     renderTechnicalMode();
     renderCachedSections();
     renderSectionMeta();
     syncControls();
   }
 
+  function describeProfile(profileId, sessionBaud) {
+    const profile = findProfileById(profileId);
+    if (profile) {
+      return profile.label;
+    }
+    if (profileId && sessionBaud) {
+      return `${profileId} (${sessionBaud})`;
+    }
+    if (sessionBaud) {
+      return String(sessionBaud);
+    }
+    return t("unknown");
+  }
+
+  function renderProfileSummary() {
+    const status = getEntryPayload(state.data.status) || {};
+    const selectedProfile = findProfileById(getDisplayedProfileId());
+    const baud = status.session_baud || (selectedProfile ? selectedProfile.session_baud : 0);
+    els.profileBaudChip.textContent = baud
+      ? t("profileBaud", { baud: String(baud) })
+      : t("profileBaudUnknown");
+  }
+
   function renderStatus() {
     const status = getEntryPayload(state.data.status);
     if (!status) {
       els.statusGrid.innerHTML = "";
+      els.primaryBadge.textContent = getPrimaryStatusTitle(status);
       els.liveBadge.textContent = t("noLiveData");
-      els.pollInfo.textContent = isRebootPending() ? t("rebootPendingPoll") : t("pollingStatusOnly");
+      els.pollInfo.textContent = describePolling(status);
       els.stateSummary.textContent = t("noStatusResponse");
-      setMessage(isRebootPending() ? t("rebootingEsp32") : t("waitingFirstPoll"));
+      if (!state.requestInFlight) {
+        setMessage(describeDefaultMessage(), messageToneForUiState(deriveUiState()));
+      }
       return;
     }
 
@@ -741,6 +1134,8 @@
       [t("metricConnected"), status.connected ? t("yes") : t("no")],
       [t("metricReady"), status.init_ready ? t("yes") : t("no")],
       [t("metricBusy"), status.busy ? t("yes") : t("no")],
+      [t("metricProfile"), describeProfile(status.selected_profile_id, status.session_baud)],
+      [t("metricBaud"), status.session_baud ? String(status.session_baud) : t("unknown")],
       [t("metricErrorCode"), String(status.error_code ?? 0)]
     ];
 
@@ -771,8 +1166,18 @@
     ].join("\n");
 
     els.liveBadge.textContent = `ECU ${translateProtocolState(status.protocol_state).toUpperCase()}`;
+    els.primaryBadge.textContent = getPrimaryStatusTitle(status);
 
     els.pollInfo.textContent = describePolling(status);
+  }
+
+  function renderPrimaryStatus() {
+    const status = getEntryPayload(state.data.status);
+    els.primaryStatus.textContent = getPrimaryStatusTitle(status);
+    els.primaryStatusDetail.textContent = getPrimaryStatusDetail(status);
+    els.networkHint.textContent = state.backendReachable
+      ? t("networkHintOnline")
+      : t("networkHintOffline");
   }
 
   function renderCacheSummary() {
@@ -832,6 +1237,128 @@
     }
 
     els.netBadge.textContent = state.lastSuccessAt ? t("linkOffline") : t("linkIdle");
+  }
+
+  function deriveUiState() {
+    const status = getEntryPayload(state.data.status);
+    const ready = status && status.meta && typeof status.meta.ready_for_commands === "boolean"
+      ? status.meta.ready_for_commands
+      : Boolean(status && status.protocol_state === "ready" && status.init_ready && !status.busy);
+
+    if (isRebootPending()) {
+      return "rebooting";
+    }
+    if (!state.hasReceivedStatus && !state.backendReachable) {
+      return "booting";
+    }
+    if (!state.backendReachable) {
+      return "network_lost";
+    }
+    if (state.pendingConnect || (status && status.protocol_state === "handshaking")) {
+      return "connecting_ecu";
+    }
+    if (status && status.protocol_state === "error") {
+      return "ecu_error";
+    }
+    if (status && (status.protocol_state === "busy" || status.busy)) {
+      return "ecu_busy";
+    }
+    if (ready) {
+      return "ecu_ready";
+    }
+    if (!status || !status.protocol_state) {
+      return "booting";
+    }
+    return "portal_ready";
+  }
+
+  function translateDiagnosticsSession(uiState) {
+    if (uiState === "connecting_ecu") return t("diagnosticsSessionConnecting");
+    if (uiState === "ecu_ready") return t("diagnosticsSessionReady");
+    if (uiState === "ecu_busy") return t("diagnosticsSessionBusy");
+    if (uiState === "ecu_error") return t("diagnosticsSessionError");
+    if (uiState === "portal_ready") return t("diagnosticsSessionDisconnected");
+    if (uiState === "network_lost") return `${t("diagnosticsSessionDisconnected")} (${t("diagnosticsSnapshotStale")})`;
+    return t("diagnosticsSessionUnknown");
+  }
+
+  function translateSnapshotLabel() {
+    const primaryEntry = state.data.live || state.data.status;
+    if (!primaryEntry) return t("diagnosticsSnapshotEmpty");
+    if (isEntryExpired(primaryEntry)) return t("diagnosticsSnapshotStale");
+    if (primaryEntry.source === "live") return t("diagnosticsSnapshotLive");
+    return t("diagnosticsSnapshotCached");
+  }
+
+  function describeSnapshotState() {
+    return `${t("diagnosticsSnapshot")}: ${translateSnapshotLabel()}.`;
+  }
+
+  function renderDiagnostics() {
+    const status = getEntryPayload(state.data.status);
+    if (!status && !bootConfig.apSsid && !bootConfig.apIp) {
+      els.diagnosticsSummary.textContent = t("diagnosticsWaiting");
+      return;
+    }
+
+    const meta = status && status.meta ? status.meta : null;
+    const apActive = Boolean(meta ? meta.ap_active : bootConfig.apIp);
+    const webUiAvailable = meta && typeof meta.web_ui_available === "boolean"
+      ? meta.web_ui_available
+      : bootConfig.webUiAvailable;
+    const lines = [
+      `${t("diagnosticsAp")}: ${apActive ? t("diagnosticsOnline") : t("diagnosticsOffline")} (${buildApInfoText()})`,
+      `${t("diagnosticsPortal")}: ${webUiAvailable ? t("diagnosticsAvailable") : t("diagnosticsUnavailable")}`,
+      `${t("diagnosticsNetwork")}: ${state.backendReachable ? t("diagnosticsOnline") : t("diagnosticsOffline")}`,
+      `${t("diagnosticsSession")}: ${translateDiagnosticsSession(deriveUiState())}`,
+      `${t("diagnosticsSnapshot")}: ${translateSnapshotLabel()}`
+    ];
+
+    if (state.lastErrorCode) {
+      lines.push(`${t("diagnosticsLastError")}: ${state.lastErrorCode}`);
+    }
+
+    if (meta && typeof meta.last_packet_age_ms === "number") {
+      lines.push(`${t("diagnosticsLastPacket")}: ${formatElapsedMs(meta.last_packet_age_ms)}`);
+    }
+
+    els.diagnosticsSummary.textContent = lines.join("\n");
+  }
+
+  function buildApInfoText() {
+    const status = getEntryPayload(state.data.status);
+    const meta = status && status.meta ? status.meta : null;
+    const apSsid = meta && meta.ap_ssid ? meta.ap_ssid : bootConfig.apSsid;
+    const apIp = meta && meta.ap_ip ? meta.ap_ip : bootConfig.apIp;
+    const apUrl = apIp ? `http://${apIp}/` : bootConfig.apUrl;
+    if (apSsid) {
+      return t("apInfo", { ssid: apSsid, url: apUrl });
+    }
+    return t("apInfoNoSsid", { url: apUrl });
+  }
+
+  function getPrimaryStatusTitle(status) {
+    const uiState = deriveUiState();
+    if (uiState === "rebooting") return t("primaryRebooting");
+    if (uiState === "network_lost") return t("primaryOffline");
+    if (uiState === "booting") return t("primaryWaiting");
+    if (uiState === "connecting_ecu") return t("primaryHandshaking");
+    if (uiState === "ecu_ready") return t("primaryReady");
+    if (uiState === "ecu_busy") return t("primaryBusy");
+    if (uiState === "ecu_error") return t("primaryError");
+    return t("primaryEcuDisconnected");
+  }
+
+  function getPrimaryStatusDetail(status) {
+    const uiState = deriveUiState();
+    if (uiState === "rebooting") return t("primaryRebootingDetail");
+    if (uiState === "network_lost") return `${t("primaryOfflineDetail")} ${describeSnapshotState()}`;
+    if (uiState === "booting") return t("primaryWaitingDetail");
+    if (uiState === "connecting_ecu") return t("primaryHandshakingDetail");
+    if (uiState === "ecu_ready") return t("primaryReadyDetail");
+    if (uiState === "ecu_busy") return t("primaryBusyDetail");
+    if (uiState === "ecu_error") return t("primaryErrorDetail");
+    return t("primaryDisconnectedDetail");
   }
 
   function renderTechnicalMode() {
@@ -983,6 +1510,7 @@
 
   function syncControls() {
     const status = getEntryPayload(state.data.status) || {};
+    const uiState = deriveUiState();
     const ready = Boolean(
       status.meta && typeof status.meta.ready_for_commands === "boolean"
         ? status.meta.ready_for_commands
@@ -992,28 +1520,30 @@
     const rebootPending = isRebootPending();
     const connectLocked = state.requestInFlight ||
       rebootPending ||
-      status.protocol_state === "handshaking" ||
-      status.busy ||
-      status.connected;
+      uiState === "connecting_ecu" ||
+      uiState === "ecu_busy" ||
+      uiState === "ecu_ready";
+    const profileLocked = connectLocked;
 
-    els.connectBtn.disabled = connectLocked;
+    els.connectBtn.disabled = connectLocked || uiState === "network_lost";
     els.rebootBtn.disabled = state.requestInFlight || rebootPending;
     els.refreshBtn.disabled = state.requestInFlight || rebootPending;
     els.technicalToggleBtn.disabled = state.requestInFlight || rebootPending;
     els.languageSelect.disabled = state.requestInFlight || rebootPending;
-    els.loadSensorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
-    els.readErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
-    els.clearErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready;
-    els.loadHealthBtn.disabled = state.requestInFlight || rebootPending;
-    els.readMemoryBtn.disabled = state.requestInFlight || rebootPending || !ready || !technicalEnabled;
-    els.loadCatalogBtn.disabled = state.requestInFlight || rebootPending || !technicalEnabled;
+    els.profileSelect.disabled = profileLocked || !state.profiles.length;
+    els.loadSensorsBtn.disabled = state.requestInFlight || rebootPending || !ready || uiState === "network_lost";
+    els.readErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready || uiState === "network_lost";
+    els.clearErrorsBtn.disabled = state.requestInFlight || rebootPending || !ready || uiState === "network_lost";
+    els.loadHealthBtn.disabled = state.requestInFlight || rebootPending || uiState === "network_lost";
+    els.readMemoryBtn.disabled = state.requestInFlight || rebootPending || !ready || !technicalEnabled || uiState === "network_lost";
+    els.loadCatalogBtn.disabled = state.requestInFlight || rebootPending || !technicalEnabled || uiState === "network_lost";
   }
 
   async function pollStatus(forceMessage) {
     await runAction("/api/status", {}, (payload) => {
       onStatusResponse(payload);
       if (forceMessage) {
-        setMessage(t("statusRefreshed"), "ok");
+        setMessage(describeDefaultMessage(), messageToneForUiState(deriveUiState()));
       }
     }, {
       silentBusy: true,
@@ -1025,6 +1555,11 @@
 
   function onStatusResponse(payload) {
     state.rebootPendingUntil = 0;
+    state.pendingConnect = false;
+    state.hasReceivedStatus = true;
+    if (typeof payload.selected_profile_id === "string") {
+      state.backendSelectedProfileId = payload.selected_profile_id;
+    }
     if (typeof payload.technical_mode_enabled === "boolean") {
       state.technicalMode = payload.technical_mode_enabled;
     }
@@ -1184,6 +1719,8 @@
     }
 
     state.rebootPendingUntil = Date.now() + 8000;
+    state.pendingConnect = false;
+    renderAll();
     syncControls();
     clearTimeout(state.pollTimer);
     schedulePolling();
@@ -1199,9 +1736,12 @@
     }
 
     state.requestInFlight = true;
+    if (url.startsWith("/api/connect")) {
+      state.pendingConnect = true;
+    }
     state.lastRequestStartedAt = Date.now();
     state.activeRequestLabel = describeRequest(url);
-    renderNetworkBadge();
+    renderAll();
     if (!cfg.silentStartMessage) {
       setMessage(t("requestStarted", { operation: state.activeRequestLabel }));
     }
@@ -1216,11 +1756,12 @@
         state.backendReachable = true;
         state.lastRoundTripMs = elapsedMs;
         state.lastSuccessAt = Date.now();
-        renderNetworkBadge();
+        state.hasReceivedStatus = true;
         handleErrorPayload(payload);
         return null;
       }
 
+      const recovered = !state.backendReachable;
       state.backendReachable = true;
       state.lastRoundTripMs = elapsedMs;
       state.lastSuccessAt = Date.now();
@@ -1230,42 +1771,84 @@
       }
 
       onSuccess(payload);
-      if (cfg.successMessageKey) {
+      if (recovered) {
+        setMessage(t("connectionRestored"), "ok");
+      } else if (cfg.successMessageKey) {
         setMessage(t(cfg.successMessageKey), "ok");
       } else if (cfg.showFinishedMessage) {
         setMessage(t("requestFinished", { operation: state.activeRequestLabel, ms: elapsedMs }), "ok");
       }
-      renderNetworkBadge();
+      renderAll();
       return payload;
     } catch (error) {
       state.backendReachable = false;
-      renderNetworkBadge();
+      state.pendingConnect = false;
+      renderAll();
       if (!cfg.silentNetworkError) {
-        setMessage(t("networkError", { message: error.message }), "err");
+        setMessage(`${t("networkError", { message: error.message })}\n${t("networkErrorRecovery")}`, "err");
       }
       return null;
     } finally {
       state.requestInFlight = false;
       state.activeRequestLabel = "";
-      renderNetworkBadge();
-      syncControls();
+      renderAll();
       schedulePolling();
     }
   }
 
   function handleErrorPayload(payload) {
     if (payload && payload.protocol_state) {
+      state.pendingConnect = payload.protocol_state === "handshaking";
       setDataEntry("status", payload, {
         storageKey: getLocalizedStorageKey(storageKeys.cacheStatus),
         ttlMs: dataTtls.status,
         source: "live"
       });
-      renderAll();
+      state.hasReceivedStatus = true;
     }
 
     const code = payload && payload.error_code ? payload.error_code : "request_failed";
-    const message = payload && payload.message ? payload.message : t("requestFailed");
+    state.lastErrorCode = code;
+    const message = formatBackendError(payload);
+    state.lastErrorMessage = message;
+    renderAll();
     setMessage(`${code}: ${message}`, "err");
+  }
+
+  function formatBackendError(payload) {
+    const code = payload && payload.error_code ? payload.error_code : "";
+    const message = payload && payload.message ? payload.message : t("requestFailed");
+    if (code === "busy") {
+      return t("errorBusy");
+    }
+    if (code === "already_connecting") {
+      return t("errorAlreadyConnecting");
+    }
+    if (code === "already_running") {
+      return t("errorAlreadyRunning");
+    }
+    if (code === "not_ready") {
+      return t("errorNotReady");
+    }
+    if (code === "technical_mode_disabled") {
+      return t("errorTechnicalModeDisabled");
+    }
+    if (code === "invalid_request") {
+      return t("errorInvalidRequest");
+    }
+    if (code === "read_failed" || code === "clear_failed") {
+      return t("errorReadFailed");
+    }
+    if (code === "connect_failed") {
+      return t("errorConnectFailed");
+    }
+    if (code === "collection_failed") {
+      return t("errorCollectionFailed");
+    }
+    if (code === "memory_read_failed") {
+      return t("errorMemoryReadFailed");
+    }
+    return message;
   }
 
   function setMessage(text, tone) {
@@ -1274,8 +1857,12 @@
   }
 
   function describePolling(status) {
+    const uiState = deriveUiState();
     if (isRebootPending()) {
       return t("rebootPendingPoll");
+    }
+    if (uiState === "network_lost") {
+      return t("waitingWifiReconnect");
     }
     if (!status || !status.protocol_state) {
       return t("pollingStatusOnly");
@@ -1330,6 +1917,7 @@
     );
     renderAll();
 
+    await loadProfiles(true);
     await pollStatus(true);
     await refreshLocalizedActiveTab();
   }
@@ -1371,6 +1959,39 @@
     if (protocolState === "busy" || protocolState === "handshaking") return "warn";
     if (protocolState === "error") return "err";
     return "";
+  }
+
+  function messageToneForUiState(uiState) {
+    if (uiState === "ecu_ready") return "ok";
+    if (uiState === "connecting_ecu" || uiState === "ecu_busy" || uiState === "rebooting") return "warn";
+    if (uiState === "network_lost" || uiState === "ecu_error") return "err";
+    return "";
+  }
+
+  function describeDefaultMessage() {
+    const uiState = deriveUiState();
+    if (uiState === "booting") {
+      return t("bootingStatus");
+    }
+    if (uiState === "portal_ready") {
+      return t("primaryPortalDetail");
+    }
+    if (uiState === "connecting_ecu") {
+      return t("primaryHandshakingDetail");
+    }
+    if (uiState === "ecu_ready") {
+      return t("primaryReadyDetail");
+    }
+    if (uiState === "ecu_busy") {
+      return t("primaryBusyDetail");
+    }
+    if (uiState === "ecu_error") {
+      return t("primaryErrorDetail");
+    }
+    if (uiState === "rebooting") {
+      return t("rebootingEsp32");
+    }
+    return `${t("networkError", { message: "ESP32 unreachable" })}\n${t("networkErrorRecovery")}`;
   }
 
   function isRebootPending() {

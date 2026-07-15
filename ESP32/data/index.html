@@ -22,6 +22,7 @@
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       background:
@@ -33,40 +34,79 @@
     .shell {
       max-width: 1080px;
       margin: 0 auto;
-      padding: 20px 14px 32px;
+      padding: 16px 14px 32px;
     }
 
-    .hero {
-      background: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
-      color: #f7f6f1;
-      border-radius: 22px;
-      padding: 20px;
-      box-shadow: var(--shadow);
-      margin-bottom: 18px;
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      margin-bottom: 14px;
+      padding-top: 4px;
     }
 
-    .hero-top, .toolbar, .actions, .status-grid, .tabs, .row {
+    .topbar-inner {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1px solid rgba(216, 207, 187, 0.85);
+      border-radius: 18px;
+      background: rgba(255, 250, 240, 0.92);
+      box-shadow: 0 10px 24px rgba(40, 47, 40, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-brand {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .topbar-subtitle {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .topbar-actions,
+    .hero-top,
+    .actions,
+    .status-grid,
+    .tabs,
+    .row,
+    .hero-badges,
+    .card-title-row,
+    .profile-meta {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
       align-items: center;
     }
 
-    .hero-top { justify-content: space-between; }
+    .topbar-actions {
+      justify-content: flex-end;
+    }
 
     .title {
-      font-size: 1.5rem;
+      font-size: 1.65rem;
       font-weight: 700;
       letter-spacing: 0.02em;
     }
 
     .subtitle {
       color: rgba(247, 246, 241, 0.8);
-      margin-top: 6px;
       font-size: 0.95rem;
     }
 
-    .pill, button, select, input {
+    .pill, .chip, button, select, input {
       border-radius: 999px;
       border: 1px solid transparent;
       font: inherit;
@@ -79,26 +119,189 @@
       font-size: 0.88rem;
     }
 
+    .pill.accent {
+      background: rgba(217, 239, 232, 0.18);
+      border-color: rgba(217, 239, 232, 0.2);
+    }
+
+    .topbar .pill {
+      background: rgba(15, 108, 124, 0.08);
+      border-color: rgba(15, 108, 124, 0.16);
+      color: var(--accent);
+    }
+
+    .chip {
+      padding: 7px 11px;
+      background: rgba(15, 108, 124, 0.08);
+      border-color: rgba(15, 108, 124, 0.18);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
+      color: #f7f6f1;
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .hero-top {
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .hero-copy,
+    .hero-actions,
+    .stack,
+    .field,
+    .connection-grid,
+    .action-stack,
+    .steps,
+    .support-body,
+    .list,
+    .table {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero-copy {
+      max-width: 560px;
+    }
+
+    .hero-link,
+    .hero-note,
+    .step-copy {
+      color: rgba(247, 246, 241, 0.82);
+      font-size: 0.92rem;
+    }
+
+    .hero-link {
+      word-break: break-word;
+    }
+
+    .hero-link a {
+      color: #fff;
+    }
+
+    .hero-status-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .hero-panel,
+    .card {
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-panel {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .hero-panel h2,
+    .card h2,
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-panel h2 {
+      color: rgba(247, 246, 241, 0.78);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .card.alt {
+      background: var(--panel-2);
+    }
+
+    .card-title-row {
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .card-copy {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .hero-panel .card-copy {
+      color: rgba(247, 246, 241, 0.82);
+    }
+
+    .hero-panel .field label,
+    .hero-panel .inline-note,
+    .hero-panel .small {
+      color: rgba(247, 246, 241, 0.82);
+    }
+
+    .primary-status {
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .primary-status-detail {
+      color: rgba(247, 246, 241, 0.82);
+      white-space: pre-wrap;
+      min-height: 44px;
+    }
+
     .layout {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
       gap: 18px;
     }
 
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      padding: 16px;
-      box-shadow: var(--shadow);
+    .connection-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
     }
 
-    .card.alt { background: var(--panel-2); }
+    .inline-note {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
 
-    .card h2, .card h3 {
-      margin: 0 0 12px;
-      font-size: 1rem;
-      letter-spacing: 0.02em;
+    .step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(15, 108, 124, 0.08);
+      border: 1px solid rgba(15, 108, 124, 0.18);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+    }
+
+    .step-title {
+      font-weight: 700;
+      margin-bottom: 2px;
     }
 
     .status-grid {
@@ -131,8 +334,6 @@
     .warn { color: var(--warn); }
     .err { color: var(--err); }
 
-    .tabs { margin-bottom: 12px; }
-
     .tab {
       background: transparent;
       border: 1px solid var(--line);
@@ -148,8 +349,9 @@
       font-weight: 700;
     }
 
-    .tab:disabled {
-      opacity: 0.45;
+    .tab:disabled,
+    button:disabled {
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
@@ -176,16 +378,6 @@
       color: #fff;
     }
 
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .stack {
-      display: grid;
-      gap: 12px;
-    }
-
     .message {
       min-height: 48px;
       padding: 12px 14px;
@@ -206,11 +398,6 @@
       background: #edf8f1;
       border-color: #bfdac8;
       color: var(--ok);
-    }
-
-    .list, .table {
-      display: grid;
-      gap: 10px;
     }
 
     .list-item, .table-row {
@@ -263,22 +450,11 @@
 
     .section-hidden { display: none; }
 
-    .toolbar {
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .toolbar .row {
-      flex: 1 1 auto;
-    }
-
     .locale-field {
       min-width: 160px;
     }
 
     .field {
-      display: grid;
-      gap: 6px;
       min-width: 90px;
     }
 
@@ -295,6 +471,27 @@
       color: var(--ink);
     }
 
+    .support-details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.5);
+      padding: 12px 14px;
+    }
+
+    .support-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .support-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .support-details .step-copy {
+      color: var(--muted);
+    }
+
     .footer-note {
       margin-top: 10px;
       color: var(--muted);
@@ -302,28 +499,52 @@
     }
 
     @media (max-width: 860px) {
-      .layout { grid-template-columns: 1fr; }
-      .table-row { grid-template-columns: 1fr; }
-      .table-head { display: none; }
-      .mobile-label { display: block; }
-      .hero-top, .toolbar {
+      .layout,
+      .hero-status-grid,
+      .connection-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .layout {
+        display: grid;
+      }
+
+      .hero-top,
+      .topbar-actions {
         align-items: stretch;
       }
-      .hero-top > div,
-      .toolbar > .row,
-      .toolbar > .pill,
-      .toolbar > button {
+
+      .topbar-inner {
+        flex-direction: column;
+      }
+
+      .topbar-actions,
+      .topbar-actions > .field,
+      .topbar-actions > .pill {
         width: 100%;
       }
+
       .tabs {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .table-row {
+        grid-template-columns: 1fr;
+      }
+
+      .table-head {
+        display: none;
+      }
+
+      .mobile-label {
+        display: block;
+      }
+
       .row > .field,
       .actions > button,
       .row > button,
-      .toolbar button,
-      .toolbar select {
+      .action-stack > button {
         width: 100%;
       }
     }
@@ -332,10 +553,29 @@
       .shell {
         padding: 14px 10px 24px;
       }
+
+      .topbar-inner,
       .hero,
       .card {
         border-radius: 18px;
       }
+
+      .title {
+        font-size: 1.45rem;
+      }
+
+      .topbar-title {
+        font-size: 0.95rem;
+      }
+
+      .hero-badges {
+        display: grid;
+      }
+
+      .hero-badges .pill {
+        min-width: 0;
+      }
+
       .tabs {
         grid-template-columns: 1fr;
       }
@@ -344,17 +584,80 @@
 </head>
 <body>
   <div class="shell">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-brand">
+          <div class="topbar-title" id="topbarTitle">MA1.7 ESP32 Scanner</div>
+          <div class="topbar-subtitle" id="topbarSubtitle">Scanner portal</div>
+        </div>
+        <div class="topbar-actions">
+          <span id="primaryBadge" class="pill accent">Scanner portal ready</span>
+          <div class="field locale-field">
+            <label id="languageLabel" for="languageSelect">Language</label>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="pt-BR">Portugues (Brasil)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <section class="hero">
       <div class="hero-top">
-        <div>
+        <div class="hero-copy">
           <div class="title">MA1.7 ESP32 Scanner</div>
           <div class="subtitle">Single-request browser client with protocol-state gating.</div>
+          <div class="hero-link" id="apInfo">Connect to the scanner Wi-Fi, then open this page here if needed.</div>
         </div>
-        <div class="toolbar">
-          <span id="liveBadge" class="pill">No live data yet</span>
-          <span id="netBadge" class="pill">Link idle</span>
-          <span id="cacheBadge" class="pill">Cache empty</span>
-          <button id="rebootBtn" class="danger">Reboot ESP32</button>
+        <div class="hero-actions">
+          <div class="hero-badges">
+            <span id="liveBadge" class="pill">No live data yet</span>
+            <span id="netBadge" class="pill">Link idle</span>
+            <span id="cacheBadge" class="pill">Cache empty</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-status-grid">
+        <div class="hero-panel">
+          <div class="card-title-row">
+            <div>
+              <h2 id="primaryStatusHeading">Scanner Status</h2>
+              <div id="statusCardCopy" class="card-copy">Use this area to verify the Wi-Fi link and ECU readiness before reading data.</div>
+            </div>
+          </div>
+          <div id="primaryStatus" class="primary-status">Waiting for scanner status</div>
+          <div id="primaryStatusDetail" class="primary-status-detail">Checking the ESP32 and ECU link.</div>
+          <div id="networkHint" class="hero-note">If the page stops updating, reconnect to the scanner Wi-Fi and refresh.</div>
+        </div>
+
+        <div class="hero-panel">
+          <div class="card-title-row">
+            <div>
+              <h2 id="connectionHeading">Connect ECU</h2>
+              <div id="connectionLead" class="card-copy">Choose the vehicle profile first, then start the ECU session.</div>
+            </div>
+          </div>
+          <div class="connection-grid">
+            <div class="connection-actions">
+              <div class="field">
+                <label id="profileLabel" for="profileSelect">ECU profile</label>
+                <select id="profileSelect">
+                  <option value="">Loading profiles...</option>
+                </select>
+              </div>
+              <div class="action-stack">
+                <button id="connectBtn">Connect ECU</button>
+                <button id="refreshBtn" class="secondary">Refresh now</button>
+              </div>
+            </div>
+            <div class="profile-meta">
+              <span id="profileBaudChip" class="chip">Baud: --</span>
+              <span id="profileHint" class="inline-note">The selected profile defines the connection baud automatically.</span>
+            </div>
+            <div id="pollInfo" class="small">Polling status only</div>
+          </div>
         </div>
       </div>
     </section>
@@ -362,29 +665,40 @@
     <div class="layout">
       <main class="stack">
         <section class="card alt">
-          <div class="toolbar">
-            <div class="row">
-              <div class="field locale-field">
-                <label id="languageLabel" for="languageSelect">Language</label>
-                <select id="languageSelect">
-                  <option value="en">English</option>
-                  <option value="pt-BR">Portugues (Brasil)</option>
-                </select>
-              </div>
-              <button id="connectBtn">Connect ECU</button>
-              <button id="refreshBtn" class="secondary">Refresh now</button>
-              <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
-            </div>
-            <div class="row small">
-              <span id="pollInfo">Polling status only</span>
-            </div>
-          </div>
+          <h2 id="sessionStatusHeading">Session Status</h2>
           <div id="messageBox" class="message" aria-live="polite">Waiting for first status poll.</div>
+          <div id="statusGrid" class="status-grid"></div>
         </section>
 
         <section class="card">
-          <h2>Session Status</h2>
-          <div id="statusGrid" class="status-grid"></div>
+          <details class="support-details">
+            <summary id="onboardingHeading">How to access the scanner portal</summary>
+            <div class="support-body">
+              <div class="steps">
+                <div class="step">
+                  <div class="step-num">1</div>
+                  <div>
+                    <div class="step-title" id="step1Title">Join the scanner Wi-Fi</div>
+                    <div class="step-copy" id="step1Copy">Use the access point shown by the scanner.</div>
+                  </div>
+                </div>
+                <div class="step">
+                  <div class="step-num">2</div>
+                  <div>
+                    <div class="step-title" id="step2Title">Open the local page</div>
+                    <div class="step-copy" id="step2Copy">If the portal does not open by itself, browse to the local IP shown here.</div>
+                  </div>
+                </div>
+                <div class="step">
+                  <div class="step-num">3</div>
+                  <div>
+                    <div class="step-title" id="step3Title">Connect the ECU</div>
+                    <div class="step-copy" id="step3Copy">Wait until the scanner reports that it is ready for reads.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section class="card">
@@ -398,7 +712,7 @@
           <div id="tab-live" class="stack">
             <div class="row">
               <div class="field">
-                <label for="tableSelect">Collection table</label>
+                <label id="collectionTableLabel" for="tableSelect">Collection table</label>
                 <select id="tableSelect">
                   <option value="0">Auto</option>
                   <option value="1">Table 1</option>
@@ -436,18 +750,21 @@
           </div>
 
           <div id="tab-technical" class="stack section-hidden">
-            <div class="small">Technical tools stay outside the normal driving workflow.</div>
+            <div id="technicalSummary" class="small">Technical tools stay outside the normal driving workflow.</div>
+            <div class="actions">
+              <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
+            </div>
             <div class="row">
               <div class="field">
-                <label for="memHi">Addr HI</label>
+                <label id="memHiLabel" for="memHi">Addr HI</label>
                 <input id="memHi" value="0x00">
               </div>
               <div class="field">
-                <label for="memLo">Addr LO</label>
+                <label id="memLoLabel" for="memLo">Addr LO</label>
                 <input id="memLo" value="0x63">
               </div>
               <div class="field">
-                <label for="memLen">Length</label>
+                <label id="memLenLabel" for="memLen">Length</label>
                 <input id="memLen" value="0x01">
               </div>
               <div class="field">
@@ -464,19 +781,32 @@
 
       <aside class="stack">
         <section class="card">
-          <h3>Current Protocol State</h3>
+          <h3 id="currentProtocolHeading">Current Protocol State</h3>
           <div id="stateSummary" class="message" aria-live="polite">Status unavailable.</div>
-          <div class="footer-note">The browser never sends a second ECU request while another one is active.</div>
+          <div id="currentProtocolFooter" class="footer-note">The browser never sends a second ECU request while another one is active.</div>
         </section>
 
         <section class="card">
-          <h3>Cached Snapshot</h3>
+          <h3 id="cachedSnapshotHeading">Cached Snapshot</h3>
           <div id="cacheSummary" class="message">Nothing stored yet.</div>
-          <div class="footer-note">Local cache is only for UX and history. The ESP32 remains the source of truth.</div>
+          <div id="cachedSnapshotFooter" class="footer-note">Local cache is only for UX and history. The ESP32 remains the source of truth.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="diagnosticsHeading">Connection Diagnostics</h3>
+              <div id="diagnosticsCardCopy" class="card-copy">Use this section when the portal is reachable but the ECU session is not.</div>
+            </div>
+            <button id="rebootBtn" class="danger">Reboot ESP32</button>
+          </div>
+          <div id="diagnosticsSummary" class="message">Waiting for scanner diagnostics.</div>
+          <div id="diagnosticsFooter" class="footer-note">Use this to separate Wi-Fi portal issues from ECU session issues.</div>
         </section>
       </aside>
     </div>
   </div>
+  <script src="/boot.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
