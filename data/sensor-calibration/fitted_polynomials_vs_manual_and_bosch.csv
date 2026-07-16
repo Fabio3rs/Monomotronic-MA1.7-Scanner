@@ -1,0 +1,5 @@
+fit_target,range_T_C,a,b,c,d,a_offset_subtract
+LUT scaled Bosch (R20=2.4k) with Rpu=median_from_manual (~2766.67 ohm),-40..130,123.32437424547247,-1.7694478550072132,0.010315447420974396,-2.4142063453498908e-05,
+LUT scaled Bosch (R20=2.4k) with Rpu=median_from_manual (~2766.67 ohm),-20..110,117.60068985049475,-1.629986166664531,0.009430610248072086,-2.2664492176129762e-05,
+Offset-only correction for original AIR poly (subtract mean error in -20..110),-20..110,,,,,1.9476004335908867
+Offset-only correction for original WATER poly (subtract mean error in -20..110),-20..110,,,,,-1.9185650394090934
