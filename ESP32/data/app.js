@@ -38,6 +38,40 @@
       apInfoNoSsid: "Local page: {url}",
       networkHintOnline: "If the portal did not open automatically, use the local address shown above.",
       networkHintOffline: "If the page stops updating, reconnect to the scanner Wi-Fi and refresh.",
+      themeButton: "Theme: {mode}",
+      themeAuto: "auto",
+      themeLight: "light",
+      themeDark: "dark",
+      saveSnapshot: "Save snapshot",
+      exportSnapshot: "Export snapshot",
+      saveSnapshotStored: "Snapshot saved to local history.",
+      saveSnapshotFailed: "Could not save snapshot to local history.",
+      saveSnapshotUnavailable: "There is no scanner snapshot to save yet.",
+      exportSnapshotDownloaded: "Snapshot downloaded.",
+      exportSnapshotShared: "Snapshot shared.",
+      exportSnapshotUnavailable: "There is no scanner snapshot to export yet.",
+      savedHistoryHeading: "Saved History",
+      savedHistoryCopy: "Snapshots saved here stay separate from the active ECU session.",
+      savedHistoryFooter: "Saved history is local to this browser only.",
+      clearHistory: "Clear history",
+      clearHistoryConfirm: "Delete all saved local snapshots now?",
+      clearHistoryDone: "Saved history cleared.",
+      noSavedHistory: "No saved snapshots yet.",
+      savedSnapshotBadge: "Saved history",
+      savedSnapshotLoaded: "Saved snapshot summary loaded.",
+      savedSnapshotDeleted: "Saved snapshot removed.",
+      savedSnapshotCardTitle: "{date}",
+      savedSnapshotDetailEmpty: "No saved snapshot selected.",
+      savedSnapshotDetailTitle: "Saved snapshot summary",
+      savedSnapshotStatus: "Status {state}",
+      savedSnapshotSensors: "{count} sensors",
+      savedSnapshotDtc: "{count} DTC",
+      savedSnapshotHealth: "health {count}",
+      savedSnapshotTechnical: "technical {kind}",
+      savedSnapshotTechnicalCatalog: "catalog",
+      savedSnapshotTechnicalMemory: "memory",
+      savedSnapshotLoad: "Load summary",
+      savedSnapshotRemove: "Remove",
       languageLabel: "Language",
       profileLabel: "ECU profile",
       profileHint: "The selected profile defines the connection baud automatically.",
@@ -48,9 +82,13 @@
       linkIdle: "Link idle",
       linkOnline: "Link {ms} ms | {age}",
       linkOnlineFresh: "Link {ms} ms | ECU {age}",
+      linkOnlineSignal: "Link {ms} ms | {age} | {rssi}",
+      linkOnlineFreshSignal: "Link {ms} ms | ECU {age} | {rssi}",
       linkBusy: "Link busy: {operation}",
       linkOffline: "Link offline",
       linkRebooting: "Link rebooting",
+      signalUnknown: "signal --",
+      signalRssi: "{value} dBm",
       ageNow: "just now",
       ageSeconds: "{count}s ago",
       ageMinutes: "{count}m ago",
@@ -229,7 +267,8 @@
       sectionTechnicalMetaEmpty: "No technical data loaded yet.",
       activeCollectionTable: "Active table {table}",
       activeCollectionTableUnknown: "Active table unknown",
-      technicalMemorySessionHint: "Memory reads are session-only on this device."
+      technicalMemorySessionHint: "Memory reads are session-only on this device.",
+      sensorTrendWaiting: "Trend builds after a few reads."
     },
     "pt-BR": {
       pageTitle: "Scanner ESP32 MA1.7",
@@ -269,6 +308,40 @@
       apInfoNoSsid: "Pagina local: {url}",
       networkHintOnline: "Se o portal nao abriu automaticamente, use o endereco local mostrado acima.",
       networkHintOffline: "Se a pagina parar de atualizar, reconecte ao Wi-Fi do scanner e atualize.",
+      themeButton: "Tema: {mode}",
+      themeAuto: "auto",
+      themeLight: "claro",
+      themeDark: "escuro",
+      saveSnapshot: "Salvar snapshot",
+      exportSnapshot: "Exportar snapshot",
+      saveSnapshotStored: "Snapshot salvo no historico local.",
+      saveSnapshotFailed: "Nao foi possivel salvar o snapshot no historico local.",
+      saveSnapshotUnavailable: "Ainda nao ha snapshot do scanner para salvar.",
+      exportSnapshotDownloaded: "Snapshot baixado.",
+      exportSnapshotShared: "Snapshot compartilhado.",
+      exportSnapshotUnavailable: "Ainda nao ha snapshot do scanner para exportar.",
+      savedHistoryHeading: "Historico salvo",
+      savedHistoryCopy: "Os snapshots salvos aqui ficam separados da sessao ativa da ECU.",
+      savedHistoryFooter: "O historico salvo existe apenas neste navegador.",
+      clearHistory: "Limpar historico",
+      clearHistoryConfirm: "Apagar agora todos os snapshots salvos localmente?",
+      clearHistoryDone: "Historico salvo limpo.",
+      noSavedHistory: "Ainda nao ha snapshots salvos.",
+      savedSnapshotBadge: "Historico salvo",
+      savedSnapshotLoaded: "Resumo do snapshot salvo carregado.",
+      savedSnapshotDeleted: "Snapshot salvo removido.",
+      savedSnapshotCardTitle: "{date}",
+      savedSnapshotDetailEmpty: "Nenhum snapshot salvo selecionado.",
+      savedSnapshotDetailTitle: "Resumo do snapshot salvo",
+      savedSnapshotStatus: "Status {state}",
+      savedSnapshotSensors: "{count} sensores",
+      savedSnapshotDtc: "{count} DTC",
+      savedSnapshotHealth: "saude {count}",
+      savedSnapshotTechnical: "tecnico {kind}",
+      savedSnapshotTechnicalCatalog: "catalogo",
+      savedSnapshotTechnicalMemory: "memoria",
+      savedSnapshotLoad: "Carregar resumo",
+      savedSnapshotRemove: "Remover",
       languageLabel: "Idioma",
       profileLabel: "Perfil da ECU",
       profileHint: "O perfil selecionado define automaticamente o baud da conexao.",
@@ -279,9 +352,13 @@
       linkIdle: "Link ocioso",
       linkOnline: "Link {ms} ms | {age}",
       linkOnlineFresh: "Link {ms} ms | ECU {age}",
+      linkOnlineSignal: "Link {ms} ms | {age} | {rssi}",
+      linkOnlineFreshSignal: "Link {ms} ms | ECU {age} | {rssi}",
       linkBusy: "Link ocupado: {operation}",
       linkOffline: "Link offline",
       linkRebooting: "Link reiniciando",
+      signalUnknown: "sinal --",
+      signalRssi: "{value} dBm",
       ageNow: "agora",
       ageSeconds: "ha {count}s",
       ageMinutes: "ha {count}min",
@@ -460,11 +537,14 @@
       sectionTechnicalMetaEmpty: "Nenhum dado tecnico foi carregado ainda.",
       activeCollectionTable: "Tabela ativa {table}",
       activeCollectionTableUnknown: "Tabela ativa desconhecida",
-      technicalMemorySessionHint: "Leituras de memoria ficam apenas nesta sessao do dispositivo."
+      technicalMemorySessionHint: "Leituras de memoria ficam apenas nesta sessao do dispositivo.",
+      sensorTrendWaiting: "A tendencia aparece apos algumas leituras."
     }
   };
 
-  const CACHE_VERSION = 2;
+  const CACHE_VERSION = 3;
+  const SENSOR_HISTORY_LIMIT = 24;
+  const SAVED_HISTORY_LIMIT = 50;
   const dataTtls = {
     status: 5000,
     live: 8000,
@@ -478,6 +558,8 @@
     prefLocale: "ma17.pref.locale",
     prefTab: "ma17.pref.activeTab",
     prefProfile: "ma17.pref.profile",
+    prefTheme: "ma17.pref.theme",
+    savedHistory: "ma17.history.snapshots",
     cacheStatus: "ma17.cache.status",
     cacheLive: "ma17.cache.live",
     cacheDtc: "ma17.cache.dtc",
@@ -489,6 +571,8 @@
   const initialLocale = detectInitialLocale();
   const initialActiveTab = localStorage.getItem(storageKeys.prefTab) || "live";
   const initialProfileId = localStorage.getItem(storageKeys.prefProfile) || "";
+  const initialTheme = detectInitialTheme();
+  const initialSavedHistory = loadSavedHistory();
   const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale));
   const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale));
   const initialDtcEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, initialLocale));
@@ -499,6 +583,7 @@
   const state = {
     activeTab: initialActiveTab,
     locale: initialLocale,
+    theme: initialTheme,
     selectedProfileId: initialProfileId,
     backendSelectedProfileId: "",
     defaultProfileId: "",
@@ -519,6 +604,10 @@
     hasReceivedStatus: false,
     lastErrorCode: "",
     lastErrorMessage: "",
+    sensorHistory: {},
+    selectedHistoryId: initialSavedHistory.length ? initialSavedHistory[0].id : "",
+    savedHistory: initialSavedHistory,
+    activeRequestButtonId: "",
     data: {
       status: initialStatusEntry,
       live: initialLiveEntry,
@@ -539,6 +628,9 @@
     liveBadge: byId("liveBadge"),
     netBadge: byId("netBadge"),
     cacheBadge: byId("cacheBadge"),
+    themeToggleBtn: byId("themeToggleBtn"),
+    saveSnapshotBtn: byId("saveSnapshotBtn"),
+    exportSnapshotBtn: byId("exportSnapshotBtn"),
     apInfo: byId("apInfo"),
     onboardingHeading: byId("onboardingHeading"),
     step1Title: byId("step1Title"),
@@ -604,9 +696,16 @@
     diagnosticsHeading: byId("diagnosticsHeading"),
     diagnosticsCardCopy: byId("diagnosticsCardCopy"),
     diagnosticsFooter: byId("diagnosticsFooter"),
+    savedHistoryHeading: byId("savedHistoryHeading"),
+    savedHistoryCopy: byId("savedHistoryCopy"),
+    savedHistoryFooter: byId("savedHistoryFooter"),
+    clearHistoryBtn: byId("clearHistoryBtn"),
+    historyList: byId("historyList"),
+    historyDetail: byId("historyDetail"),
     memHi: byId("memHi"),
     memLo: byId("memLo"),
-    memLen: byId("memLen")
+    memLen: byId("memLen"),
+    themeColorMeta: document.querySelector('meta[name="theme-color"]')
   };
 
   bindEvents();
@@ -645,6 +744,19 @@
     return normalizeLocale(navigator.language || navigator.userLanguage || "en");
   }
 
+  function detectInitialTheme() {
+    const stored = localStorage.getItem(storageKeys.prefTheme);
+    return normalizeTheme(stored || "auto");
+  }
+
+  function normalizeTheme(theme) {
+    const raw = String(theme || "").trim().toLowerCase();
+    if (raw === "light" || raw === "dark") {
+      return raw;
+    }
+    return "auto";
+  }
+
   function readJson(key) {
     try {
       const raw = localStorage.getItem(key);
@@ -655,7 +767,34 @@
   }
 
   function writeJson(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function loadSavedHistory() {
+    const raw = readJson(storageKeys.savedHistory);
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    return raw.filter((entry) =>
+      entry &&
+      typeof entry.id === "string" &&
+      typeof entry.saved_at === "string" &&
+      entry.sections &&
+      typeof entry.sections === "object"
+    );
+  }
+
+  function persistSavedHistory() {
+    return writeJson(
+      storageKeys.savedHistory,
+      state.savedHistory.slice(0, SAVED_HISTORY_LIMIT)
+    );
   }
 
   function getLocalizedStorageKey(baseKey, locale) {
@@ -807,6 +946,41 @@
     return text;
   }
 
+  function capitalize(text) {
+    const value = String(text || "");
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
+  }
+
+  function resolveThemeMode() {
+    if (state.theme === "dark" || state.theme === "light") {
+      return state.theme;
+    }
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", state.theme);
+    if (els.themeColorMeta) {
+      els.themeColorMeta.setAttribute(
+        "content",
+        resolveThemeMode() === "dark" ? "#10181c" : "#f1efe7"
+      );
+    }
+    if (els.themeToggleBtn) {
+      els.themeToggleBtn.textContent = t("themeButton", { mode: t(`theme${capitalize(state.theme)}`) });
+    }
+  }
+
+  function cycleTheme() {
+    const order = ["auto", "dark", "light"];
+    const index = order.indexOf(state.theme);
+    state.theme = order[(index + 1) % order.length];
+    localStorage.setItem(storageKeys.prefTheme, state.theme);
+    applyTheme();
+  }
+
   function translateProtocolState(protocolState) {
     const map = {
       busy: "protocolStateBusy",
@@ -849,6 +1023,9 @@
     els.statusCardCopy.textContent = t("statusCardCopy");
     els.connectionHeading.textContent = t("connectionHeading");
     els.connectionLead.textContent = t("connectionLead");
+    els.themeToggleBtn.textContent = t("themeButton", { mode: t(`theme${capitalize(state.theme)}`) });
+    els.saveSnapshotBtn.textContent = t("saveSnapshot");
+    els.exportSnapshotBtn.textContent = t("exportSnapshot");
     els.languageLabel.textContent = t("languageLabel");
     els.profileLabel.textContent = t("profileLabel");
     els.profileHint.textContent = t("profileHint");
@@ -880,6 +1057,10 @@
     els.currentProtocolFooter.textContent = t("footerActiveRequest");
     els.cachedSnapshotHeading.textContent = t("cachedSnapshot");
     els.cachedSnapshotFooter.textContent = t("footerCache");
+    els.savedHistoryHeading.textContent = t("savedHistoryHeading");
+    els.savedHistoryCopy.textContent = t("savedHistoryCopy");
+    els.savedHistoryFooter.textContent = t("savedHistoryFooter");
+    els.clearHistoryBtn.textContent = t("clearHistory");
     els.diagnosticsHeading.textContent = t("diagnosticsHeading");
     els.diagnosticsCardCopy.textContent = t("diagnosticsCardCopy");
     els.diagnosticsFooter.textContent = t("diagnosticsFooter");
@@ -892,10 +1073,28 @@
       button.addEventListener("click", () => setTab(button.dataset.tab));
     });
 
+    const themeMedia = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const handleThemeChange = () => {
+      if (state.theme === "auto") {
+        applyTheme();
+      }
+    };
+    if (themeMedia && typeof themeMedia.addEventListener === "function") {
+      themeMedia.addEventListener("change", handleThemeChange);
+    } else if (themeMedia && typeof themeMedia.addListener === "function") {
+      themeMedia.addListener(handleThemeChange);
+    }
+
     els.languageSelect.addEventListener("change", onLocaleChange);
     els.profileSelect.addEventListener("change", onProfileChange);
+    els.themeToggleBtn.addEventListener("click", cycleTheme);
+    els.saveSnapshotBtn.addEventListener("click", saveSnapshotToHistory);
+    els.exportSnapshotBtn.addEventListener("click", exportSnapshot);
+    els.clearHistoryBtn.addEventListener("click", clearSavedHistory);
+    els.historyList.addEventListener("click", onHistoryListClick);
 
     els.connectBtn.addEventListener("click", () => {
+      resetSessionSensorHistory();
       const profileId = getPreferredProfileId();
       const connectUrl = profileId
         ? `/api/connect?profile=${encodeURIComponent(profileId)}`
@@ -917,6 +1116,7 @@
   }
 
   async function initialize() {
+    applyTheme();
     renderAll();
     await loadProfiles();
     await pollStatus(true);
@@ -1043,6 +1243,7 @@
     }
 
     setSelectedProfileId(nextProfileId, true);
+    resetSessionSensorHistory();
     renderAll();
   }
 
@@ -1074,7 +1275,9 @@
     renderTechnicalMode();
     renderCachedSections();
     renderSectionMeta();
+    renderSavedHistory();
     syncControls();
+    renderRequestState();
   }
 
   function describeProfile(profileId, sessionBaud) {
@@ -1084,6 +1287,9 @@
     }
     if (profileId && sessionBaud) {
       return `${profileId} (${sessionBaud})`;
+    }
+    if (profileId) {
+      return profileId;
     }
     if (sessionBaud) {
       return String(sessionBaud);
@@ -1193,9 +1399,97 @@
       `${t("cacheStoredPrefix")} ${pieces.join(", ")}. ${t("cacheStoredSuffix")}`;
   }
 
+  function renderSavedHistory() {
+    if (!state.savedHistory.length) {
+      state.selectedHistoryId = "";
+      els.historyList.innerHTML = `<div class="list-item small">${escapeHtml(t("noSavedHistory"))}</div>`;
+      els.historyDetail.textContent = t("savedSnapshotDetailEmpty");
+      return;
+    }
+
+    const selectedId = findSavedHistoryEntry(state.selectedHistoryId)
+      ? state.selectedHistoryId
+      : state.savedHistory[0].id;
+    state.selectedHistoryId = selectedId;
+
+    els.historyList.innerHTML = state.savedHistory.map((entry) => `
+      <div class="history-item${entry.id === selectedId ? " active" : ""}">
+        <div class="history-item-head">
+          <div>
+            <div class="history-badge">${escapeHtml(t("savedSnapshotBadge"))}</div>
+            <div class="history-title">${escapeHtml(t("savedSnapshotCardTitle", { date: formatSavedTimestamp(entry.saved_at) }))}</div>
+            <div class="small">${escapeHtml(describeProfile(entry.profile_id, 0))}</div>
+          </div>
+          <div class="history-item-actions">
+            <button class="secondary" type="button" data-history-action="load" data-history-id="${escapeHtml(entry.id)}">${escapeHtml(t("savedSnapshotLoad"))}</button>
+            <button class="secondary" type="button" data-history-action="remove" data-history-id="${escapeHtml(entry.id)}">${escapeHtml(t("savedSnapshotRemove"))}</button>
+          </div>
+        </div>
+        <div class="history-summary">${escapeHtml(buildSavedHistorySummary(entry))}</div>
+      </div>
+    `).join("");
+
+    renderSavedHistoryDetail();
+  }
+
+  function renderSavedHistoryDetail() {
+    const entry = findSavedHistoryEntry(state.selectedHistoryId);
+    if (!entry) {
+      els.historyDetail.textContent = t("savedSnapshotDetailEmpty");
+      return;
+    }
+
+    const lines = [
+      t("savedSnapshotDetailTitle"),
+      `${formatSavedTimestamp(entry.saved_at)} | ${describeProfile(entry.profile_id, 0)}`,
+      buildSavedHistorySummary(entry)
+    ];
+    els.historyDetail.textContent = lines.join("\n");
+  }
+
+  function buildSavedHistorySummary(entry) {
+    const sections = entry && entry.sections ? entry.sections : {};
+    const parts = [];
+    if (sections.status && sections.status.protocol_state) {
+      parts.push(t("savedSnapshotStatus", { state: translateProtocolState(sections.status.protocol_state) }));
+    }
+    if (sections.live && Array.isArray(sections.live.sensors)) {
+      parts.push(t("savedSnapshotSensors", { count: sections.live.sensors.length }));
+    }
+    if (sections.dtc && Array.isArray(sections.dtc.errors)) {
+      parts.push(t("savedSnapshotDtc", { count: sections.dtc.errors.length }));
+    }
+    if (sections.health && sections.health.health) {
+      parts.push(t("savedSnapshotHealth", { count: Object.keys(sections.health.health).length }));
+    }
+    if (sections.technical) {
+      const kind = sections.technical.sensors
+        ? t("savedSnapshotTechnicalCatalog")
+        : t("savedSnapshotTechnicalMemory");
+      parts.push(t("savedSnapshotTechnical", { kind }));
+    }
+    return parts.join(" | ") || t("nothingStoredYet");
+  }
+
+  function findSavedHistoryEntry(historyId) {
+    if (!historyId) {
+      return null;
+    }
+    return state.savedHistory.find((entry) => entry.id === historyId) || null;
+  }
+
+  function formatSavedTimestamp(isoTimestamp) {
+    const value = Date.parse(isoTimestamp);
+    if (!Number.isFinite(value)) {
+      return isoTimestamp;
+    }
+    return new Date(value).toLocaleString(state.locale);
+  }
+
   function renderNetworkBadge() {
     const status = getEntryPayload(state.data.status);
     const meta = status && status.meta ? status.meta : null;
+    const rssiText = formatSignalStrength(meta && meta.wifi_rssi_dbm);
 
     if (isRebootPending()) {
       els.netBadge.textContent = t("linkRebooting");
@@ -1209,20 +1503,29 @@
 
     if (state.backendReachable && state.lastRoundTripMs !== null) {
       if (meta && typeof meta.last_packet_age_ms === "number") {
-        els.netBadge.textContent = t("linkOnlineFresh", {
+        els.netBadge.textContent = t("linkOnlineFreshSignal", {
           ms: state.lastRoundTripMs,
-          age: formatElapsedMs(meta.last_packet_age_ms)
+          age: formatElapsedMs(meta.last_packet_age_ms),
+          rssi: rssiText
         });
       } else {
-        els.netBadge.textContent = t("linkOnline", {
+        els.netBadge.textContent = t("linkOnlineSignal", {
           ms: state.lastRoundTripMs,
-          age: formatAge(state.lastSuccessAt)
+          age: formatAge(state.lastSuccessAt),
+          rssi: rssiText
         });
       }
       return;
     }
 
     els.netBadge.textContent = state.lastSuccessAt ? t("linkOffline") : t("linkIdle");
+  }
+
+  function formatSignalStrength(rssiDbm) {
+    if (typeof rssiDbm !== "number" || !Number.isFinite(rssiDbm)) {
+      return t("signalUnknown");
+    }
+    return t("signalRssi", { value: rssiDbm });
   }
 
   function deriveUiState() {
@@ -1421,7 +1724,8 @@
       <div class="table-row">
         <div>
           <strong>${escapeHtml(sensor.name || sensor.key || `${t("sensorLabel")} ${sensor.id}`)}</strong>
-          <div class="small">id=${sensor.id} sub=${sensor.subcommand} slot=${sensor.slot}</div>
+          <div class="sensor-meta small">id=${sensor.id} sub=${sensor.subcommand} slot=${sensor.slot}</div>
+          ${renderSensorTrend(sensor)}
         </div>
         <div>
           <div class="mobile-label">${escapeHtml(t("sensorColumnRaw"))}</div>
@@ -1433,6 +1737,83 @@
         </div>
       </div>
     `).join("");
+  }
+
+  function renderSensorTrend(sensor) {
+    const history = state.sensorHistory[getSensorHistoryKey(sensor)];
+    if (!history || history.points.length < 2) {
+      return `<div class="small sparkline-placeholder">${escapeHtml(t("sensorTrendWaiting"))}</div>`;
+    }
+
+    const points = history.points;
+    let min = Math.min.apply(null, points);
+    let max = Math.max.apply(null, points);
+    if (min === max) {
+      min -= 1;
+      max += 1;
+    }
+
+    const width = 160;
+    const height = 36;
+    const linePoints = points.map((value, index) => {
+      const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
+      const normalized = (value - min) / (max - min);
+      const y = height - (normalized * (height - 6) + 3);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    const areaPoints = `0,${height} ${linePoints} ${width},${height}`;
+
+    return `
+      <svg class="sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true" focusable="false">
+        <polygon class="sparkline-fill" points="${areaPoints}"></polygon>
+        <polyline points="${linePoints}"></polyline>
+      </svg>
+    `;
+  }
+
+  function getSensorHistoryKey(sensor) {
+    return [sensor && sensor.id, sensor && sensor.subcommand, sensor && sensor.slot].join(":");
+  }
+
+  function getSensorTrendValue(sensor) {
+    if (sensor && typeof sensor.value === "number" && Number.isFinite(sensor.value)) {
+      return sensor.value;
+    }
+    if (sensor && typeof sensor.value === "string") {
+      const parsed = Number.parseFloat(sensor.value.replace(",", "."));
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    if (sensor && typeof sensor.raw === "number" && Number.isFinite(sensor.raw)) {
+      return sensor.raw;
+    }
+    return null;
+  }
+
+  function recordSensorHistory(payload) {
+    const sensors = payload && Array.isArray(payload.sensors) ? payload.sensors : [];
+    sensors.forEach((sensor) => {
+      const trendValue = getSensorTrendValue(sensor);
+      if (trendValue === null) {
+        return;
+      }
+
+      const key = getSensorHistoryKey(sensor);
+      if (!state.sensorHistory[key]) {
+        state.sensorHistory[key] = { points: [] };
+      }
+
+      const bucket = state.sensorHistory[key];
+      bucket.points.push(trendValue);
+      if (bucket.points.length > SENSOR_HISTORY_LIMIT) {
+        bucket.points.splice(0, bucket.points.length - SENSOR_HISTORY_LIMIT);
+      }
+    });
+  }
+
+  function resetSessionSensorHistory() {
+    state.sensorHistory = {};
   }
 
   function renderErrors(payload) {
@@ -1525,6 +1906,30 @@
     els.loadCatalogBtn.disabled = state.requestInFlight || rebootPending || !technicalEnabled || uiState === "network_lost";
   }
 
+  function renderRequestState() {
+    [
+      els.connectBtn,
+      els.rebootBtn,
+      els.refreshBtn,
+      els.technicalToggleBtn,
+      els.loadSensorsBtn,
+      els.readErrorsBtn,
+      els.clearErrorsBtn,
+      els.loadHealthBtn,
+      els.readMemoryBtn,
+      els.loadCatalogBtn,
+      els.themeToggleBtn,
+      els.exportSnapshotBtn
+    ].forEach((button) => {
+      if (!button) {
+        return;
+      }
+      const busy = state.requestInFlight && button.id === state.activeRequestButtonId;
+      button.dataset.busy = busy ? "true" : "false";
+      button.setAttribute("aria-busy", busy ? "true" : "false");
+    });
+  }
+
   async function pollStatus(forceMessage) {
     await runAction("/api/status", {}, (payload) => {
       onStatusResponse(payload);
@@ -1540,11 +1945,24 @@
   }
 
   function onStatusResponse(payload) {
+    const previousStatus = getEntryPayload(state.data.status) || {};
     state.rebootPendingUntil = 0;
     state.pendingConnect = false;
     state.hasReceivedStatus = true;
     if (typeof payload.selected_profile_id === "string") {
+      if (
+        previousStatus.selected_profile_id &&
+        previousStatus.selected_profile_id !== payload.selected_profile_id
+      ) {
+        resetSessionSensorHistory();
+      }
       state.backendSelectedProfileId = payload.selected_profile_id;
+    }
+    if (
+      previousStatus.protocol_state === "ready" &&
+      payload.protocol_state === "disconnected"
+    ) {
+      resetSessionSensorHistory();
     }
     if (typeof payload.technical_mode_enabled === "boolean") {
       state.technicalMode = payload.technical_mode_enabled;
@@ -1584,6 +2002,7 @@
 
   async function loadSensors(silent) {
     await runAction("/api/sensors/collection", {}, (payload) => {
+      recordSensorHistory(payload);
       setDataEntry("live", payload, {
         storageKey: getLocalizedStorageKey(storageKeys.cacheLive),
         ttlMs: dataTtls.live,
@@ -1720,10 +2139,132 @@
 
     state.rebootPendingUntil = Date.now() + 8000;
     state.pendingConnect = false;
+    resetSessionSensorHistory();
     renderAll();
     syncControls();
     clearTimeout(state.pollTimer);
     schedulePolling();
+  }
+
+  function saveSnapshotToHistory() {
+    const snapshot = buildSnapshotForStorage();
+    if (!snapshot) {
+      setMessage(t("saveSnapshotUnavailable"), "err");
+      return;
+    }
+
+    const previousHistory = state.savedHistory.slice();
+    const previousSelectedHistoryId = state.selectedHistoryId;
+    state.savedHistory.unshift(snapshot);
+    if (state.savedHistory.length > SAVED_HISTORY_LIMIT) {
+      state.savedHistory = state.savedHistory.slice(0, SAVED_HISTORY_LIMIT);
+    }
+    state.selectedHistoryId = snapshot.id;
+    if (!persistSavedHistory()) {
+      state.savedHistory = previousHistory;
+      state.selectedHistoryId = previousSelectedHistoryId;
+      renderSavedHistory();
+      setMessage(t("saveSnapshotFailed"), "err");
+      return;
+    }
+    renderSavedHistory();
+    setMessage(t("saveSnapshotStored"), "ok");
+  }
+
+  async function exportSnapshot() {
+    const snapshot = buildSnapshotExport();
+    if (!snapshot) {
+      setMessage(t("exportSnapshotUnavailable"), "err");
+      return;
+    }
+
+    const filename = buildSnapshotFilename(snapshot.exported_at);
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: "application/json"
+    });
+
+    if (navigator.share && typeof File !== "undefined") {
+      const file = new File([blob], filename, { type: "application/json" });
+      try {
+        const payload = {
+          title: document.title,
+          files: [file]
+        };
+        if (!navigator.canShare || navigator.canShare(payload)) {
+          await navigator.share(payload);
+          setMessage(t("exportSnapshotShared"), "ok");
+          return;
+        }
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    downloadBlob(filename, blob);
+    setMessage(t("exportSnapshotDownloaded"), "ok");
+  }
+
+  function buildSnapshotExport() {
+    const snapshot = buildSnapshotForStorage();
+    if (!snapshot) {
+      return null;
+    }
+
+    const sensorHistory = {};
+    Object.keys(state.sensorHistory).forEach((key) => {
+      sensorHistory[key] = state.sensorHistory[key].points.slice();
+    });
+
+    return Object.assign({}, snapshot, {
+      sensor_history: sensorHistory,
+      exported_at: new Date().toISOString()
+    });
+  }
+
+  function buildSnapshotForStorage() {
+    const sections = buildSnapshotSections();
+    if (!sections.status && !sections.live && !sections.dtc && !sections.health && !sections.technical) {
+      return null;
+    }
+
+    return {
+      id: `snapshot-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      saved_at: new Date().toISOString(),
+      locale: state.locale,
+      profile_id: getPreferredProfileId(),
+      round_trip_ms: state.lastRoundTripMs,
+      sections
+    };
+  }
+
+  function buildSnapshotSections() {
+    return {
+      status: getEntryPayload(state.data.status),
+      live: getEntryPayload(state.data.live),
+      dtc: getEntryPayload(state.data.dtc),
+      health: getEntryPayload(state.data.health),
+      technical: state.data.technical && !state.data.technical.sessionOnly
+        ? getEntryPayload(state.data.technical)
+        : null
+    };
+  }
+
+  function buildSnapshotFilename(isoTimestamp) {
+    const stamp = String(isoTimestamp || new Date().toISOString()).replace(/[:.]/g, "-");
+    return `ma17-snapshot-${stamp}.json`;
+  }
+
+  function downloadBlob(filename, blob) {
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
   }
 
   async function runAction(url, options, onSuccess, settings) {
@@ -1741,6 +2282,7 @@
     }
     state.lastRequestStartedAt = Date.now();
     state.activeRequestLabel = describeRequest(url);
+    state.activeRequestButtonId = getRequestButtonId(url);
     renderAll();
     if (!cfg.silentStartMessage) {
       setMessage(t("requestStarted", { operation: state.activeRequestLabel }));
@@ -1791,6 +2333,7 @@
     } finally {
       state.requestInFlight = false;
       state.activeRequestLabel = "";
+      state.activeRequestButtonId = "";
       renderAll();
       schedulePolling();
     }
@@ -2043,6 +2586,83 @@
       return state.technicalMode ? t("technicalModeOff") : t("technicalModeOn");
     }
     return t("unknown");
+  }
+
+  function onHistoryListClick(event) {
+    const button = event.target.closest("[data-history-action]");
+    if (!button) {
+      return;
+    }
+
+    const historyId = button.getAttribute("data-history-id");
+    const action = button.getAttribute("data-history-action");
+    if (action === "load") {
+      state.selectedHistoryId = historyId || "";
+      renderSavedHistory();
+      setMessage(t("savedSnapshotLoaded"), "ok");
+      return;
+    }
+    if (action === "remove") {
+      deleteHistorySnapshot(historyId || "");
+    }
+  }
+
+  function deleteHistorySnapshot(historyId) {
+    const beforeCount = state.savedHistory.length;
+    const previousHistory = state.savedHistory.slice();
+    const previousSelectedHistoryId = state.selectedHistoryId;
+    state.savedHistory = state.savedHistory.filter((entry) => entry.id !== historyId);
+    if (state.savedHistory.length === beforeCount) {
+      return;
+    }
+    if (state.selectedHistoryId === historyId) {
+      state.selectedHistoryId = state.savedHistory.length ? state.savedHistory[0].id : "";
+    }
+    if (!persistSavedHistory()) {
+      state.savedHistory = previousHistory;
+      state.selectedHistoryId = previousSelectedHistoryId;
+      renderSavedHistory();
+      setMessage(t("saveSnapshotFailed"), "err");
+      return;
+    }
+    renderSavedHistory();
+    setMessage(t("savedSnapshotDeleted"), "ok");
+  }
+
+  function clearSavedHistory() {
+    if (!state.savedHistory.length) {
+      return;
+    }
+    if (!window.confirm(t("clearHistoryConfirm"))) {
+      return;
+    }
+    const previousHistory = state.savedHistory.slice();
+    const previousSelectedHistoryId = state.selectedHistoryId;
+    state.savedHistory = [];
+    state.selectedHistoryId = "";
+    if (!persistSavedHistory()) {
+      state.savedHistory = previousHistory;
+      state.selectedHistoryId = previousSelectedHistoryId;
+      renderSavedHistory();
+      setMessage(t("saveSnapshotFailed"), "err");
+      return;
+    }
+    renderSavedHistory();
+    setMessage(t("clearHistoryDone"), "ok");
+  }
+
+  function getRequestButtonId(url) {
+    if (url.startsWith("/api/status")) return "refreshBtn";
+    if (url.startsWith("/api/connect")) return "connectBtn";
+    if (url.startsWith("/api/reboot")) return "rebootBtn";
+    if (url.startsWith("/api/sensors/collection")) return "loadSensorsBtn";
+    if (url.startsWith("/api/errors/clear")) return "clearErrorsBtn";
+    if (url.startsWith("/api/errors")) return "readErrorsBtn";
+    if (url.startsWith("/api/health")) return "loadHealthBtn";
+    if (url.startsWith("/api/memory/read")) return "readMemoryBtn";
+    if (url.startsWith("/api/sensors/catalog")) return "loadCatalogBtn";
+    if (url.startsWith("/api/technical-mode")) return "technicalToggleBtn";
+    return "";
   }
 
   function formatAge(timestamp) {

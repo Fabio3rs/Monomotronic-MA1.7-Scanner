@@ -1,9 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="auto">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f1efe7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>MA1.7 ESP32 Scanner</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>
     :root {
       --bg: #f1efe7;
@@ -18,16 +23,108 @@
       --accent: #0f6c7c;
       --accent-2: #d9efe8;
       --shadow: 0 12px 30px rgba(40, 47, 40, 0.08);
+      --hero-ink: #f7f6f1;
+      --hero-muted: rgba(247, 246, 241, 0.82);
+      --hero-panel: rgba(255, 255, 255, 0.08);
+      --hero-panel-line: rgba(255, 255, 255, 0.14);
+      --surface-soft: rgba(255, 255, 255, 0.65);
+      --surface-list: rgba(255, 255, 255, 0.7);
+      --surface-detail: rgba(255, 255, 255, 0.5);
+      --surface-message: #fff;
+      --surface-message-err: #fff0ed;
+      --surface-message-ok: #edf8f1;
+      --input-bg: #fff;
+      --hero-bg: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
+      --topbar-bg: rgba(255, 250, 240, 0.92);
+      --hero-heading: rgba(247, 246, 241, 0.78);
+      --spark-fill: rgba(15, 108, 124, 0.16);
+      --button-spinner-track: rgba(31, 42, 48, 0.22);
+      --body-bg:
+        radial-gradient(circle at top right, rgba(15, 108, 124, 0.08), transparent 26%),
+        linear-gradient(180deg, #f6f2e8 0%, var(--bg) 100%);
+      --theme-color: #f1efe7;
       font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    html {
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #10181c;
+      --panel: #162027;
+      --panel-2: #1a252d;
+      --ink: #edf3f6;
+      --muted: #a7bac2;
+      --line: #2d424e;
+      --ok: #79d79a;
+      --warn: #f2be5d;
+      --err: #ff8a76;
+      --accent: #7fd5dd;
+      --accent-2: rgba(127, 213, 221, 0.15);
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+      --hero-ink: #f7fbfc;
+      --hero-muted: rgba(247, 251, 252, 0.82);
+      --hero-panel: rgba(9, 18, 22, 0.26);
+      --hero-panel-line: rgba(127, 213, 221, 0.18);
+      --surface-soft: rgba(11, 20, 24, 0.45);
+      --surface-list: rgba(11, 20, 24, 0.56);
+      --surface-detail: rgba(11, 20, 24, 0.42);
+      --surface-message: #111b20;
+      --surface-message-err: rgba(170, 61, 45, 0.18);
+      --surface-message-ok: rgba(47, 125, 79, 0.18);
+      --input-bg: #0f171b;
+      --hero-bg: linear-gradient(135deg, #09161a 0%, #0f2730 55%, #14413d 100%);
+      --topbar-bg: rgba(22, 32, 39, 0.92);
+      --hero-heading: rgba(247, 251, 252, 0.78);
+      --spark-fill: rgba(127, 213, 221, 0.18);
+      --button-spinner-track: rgba(237, 243, 246, 0.22);
+      --body-bg:
+        radial-gradient(circle at top right, rgba(127, 213, 221, 0.1), transparent 28%),
+        linear-gradient(180deg, #0c1317 0%, var(--bg) 100%);
+      --theme-color: #10181c;
+      color-scheme: dark;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html[data-theme="auto"] {
+        --bg: #10181c;
+        --panel: #162027;
+        --panel-2: #1a252d;
+        --ink: #edf3f6;
+        --muted: #a7bac2;
+        --line: #2d424e;
+        --ok: #79d79a;
+        --warn: #f2be5d;
+        --err: #ff8a76;
+        --accent: #7fd5dd;
+        --accent-2: rgba(127, 213, 221, 0.15);
+        --shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+        --hero-ink: #f7fbfc;
+        --hero-muted: rgba(247, 251, 252, 0.82);
+        --hero-panel: rgba(9, 18, 22, 0.26);
+        --hero-panel-line: rgba(127, 213, 221, 0.18);
+        --surface-soft: rgba(11, 20, 24, 0.45);
+        --surface-list: rgba(11, 20, 24, 0.56);
+        --surface-detail: rgba(11, 20, 24, 0.42);
+        --surface-message: #111b20;
+        --surface-message-err: rgba(170, 61, 45, 0.18);
+        --surface-message-ok: rgba(47, 125, 79, 0.18);
+        --input-bg: #0f171b;
+        --hero-bg: linear-gradient(135deg, #09161a 0%, #0f2730 55%, #14413d 100%);
+        --body-bg:
+          radial-gradient(circle at top right, rgba(127, 213, 221, 0.1), transparent 28%),
+          linear-gradient(180deg, #0c1317 0%, var(--bg) 100%);
+        --theme-color: #10181c;
+        color-scheme: dark;
+      }
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      background:
-        radial-gradient(circle at top right, rgba(15, 108, 124, 0.08), transparent 26%),
-        linear-gradient(180deg, #f6f2e8 0%, var(--bg) 100%);
+      background: var(--body-bg);
       color: var(--ink);
     }
 
@@ -53,7 +150,7 @@
       padding: 12px 14px;
       border: 1px solid rgba(216, 207, 187, 0.85);
       border-radius: 18px;
-      background: rgba(255, 250, 240, 0.92);
+      background: var(--topbar-bg);
       box-shadow: 0 10px 24px rgba(40, 47, 40, 0.08);
       backdrop-filter: blur(12px);
     }
@@ -115,7 +212,7 @@
     .pill {
       padding: 7px 12px;
       background: rgba(255, 255, 255, 0.12);
-      color: #fff;
+      color: var(--hero-ink);
       font-size: 0.88rem;
     }
 
@@ -140,8 +237,8 @@
     }
 
     .hero {
-      background: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
-      color: #f7f6f1;
+      background: var(--hero-bg);
+      color: var(--hero-ink);
       border-radius: 22px;
       padding: 20px;
       box-shadow: var(--shadow);
@@ -174,7 +271,7 @@
     .hero-link,
     .hero-note,
     .step-copy {
-      color: rgba(247, 246, 241, 0.82);
+      color: var(--hero-muted);
       font-size: 0.92rem;
     }
 
@@ -183,7 +280,7 @@
     }
 
     .hero-link a {
-      color: #fff;
+      color: var(--hero-ink);
     }
 
     .hero-status-grid {
@@ -201,8 +298,8 @@
     }
 
     .hero-panel {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: var(--hero-panel);
+      border: 1px solid var(--hero-panel-line);
     }
 
     .hero-panel h2,
@@ -214,7 +311,7 @@
     }
 
     .hero-panel h2 {
-      color: rgba(247, 246, 241, 0.78);
+      color: var(--hero-heading);
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
@@ -311,7 +408,7 @@
     .metric {
       flex: 1 1 150px;
       min-width: 140px;
-      background: rgba(255, 255, 255, 0.65);
+      background: var(--surface-soft);
       border: 1px solid var(--line);
       border-radius: 16px;
       padding: 12px;
@@ -360,6 +457,11 @@
       background: var(--accent);
       color: white;
       cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    button:not(:disabled):active {
+      transform: translateY(1px);
     }
 
     button.secondary {
@@ -382,26 +484,26 @@
       min-height: 48px;
       padding: 12px 14px;
       border-radius: 14px;
-      background: #fff;
+      background: var(--surface-message);
       border: 1px solid var(--line);
       color: var(--muted);
       white-space: pre-wrap;
     }
 
     .message.err {
-      background: #fff0ed;
+      background: var(--surface-message-err);
       border-color: #efc0b6;
       color: var(--err);
     }
 
     .message.ok {
-      background: #edf8f1;
+      background: var(--surface-message-ok);
       border-color: #bfdac8;
       color: var(--ok);
     }
 
     .list-item, .table-row {
-      background: rgba(255, 255, 255, 0.7);
+      background: var(--surface-list);
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 12px;
@@ -466,7 +568,7 @@
     select, input {
       width: 100%;
       padding: 9px 12px;
-      background: #fff;
+      background: var(--input-bg);
       border-color: var(--line);
       color: var(--ink);
     }
@@ -474,8 +576,140 @@
     .support-details {
       border: 1px solid var(--line);
       border-radius: 16px;
-      background: rgba(255, 255, 255, 0.5);
+      background: var(--surface-detail);
       padding: 12px 14px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .sensor-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .history-header-actions,
+    .history-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .history-item {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--surface-list);
+    }
+
+    .history-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-2) inset;
+    }
+
+    .history-item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .history-title {
+      font-weight: 700;
+    }
+
+    .history-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 108, 124, 0.18);
+      background: rgba(15, 108, 124, 0.08);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .history-summary {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .history-detail {
+      min-height: 72px;
+    }
+
+    .sparkline {
+      margin-top: 8px;
+      width: 100%;
+      max-width: 180px;
+      height: 36px;
+      display: block;
+      color: var(--accent);
+    }
+
+    .sparkline polyline {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sparkline .sparkline-fill {
+      fill: var(--spark-fill);
+      stroke: none;
+    }
+
+    .sparkline-placeholder {
+      margin-top: 8px;
+      max-width: 180px;
+    }
+
+    button[data-busy="true"] {
+      position: relative;
+      padding-right: 40px;
+    }
+
+    button[data-busy="true"]::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      width: 14px;
+      height: 14px;
+      margin-top: -7px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.32);
+      border-top-color: currentColor;
+      animation: spin 0.8s linear infinite;
+    }
+
+    button.secondary[data-busy="true"]::after {
+      border-color: var(--button-spinner-track);
+      border-top-color: currentColor;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .support-details summary {
@@ -579,6 +813,10 @@
       .tabs {
         grid-template-columns: 1fr;
       }
+
+      .history-item-head {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -592,6 +830,11 @@
         </div>
         <div class="topbar-actions">
           <span id="primaryBadge" class="pill accent">Scanner portal ready</span>
+          <div class="toolbar-actions">
+            <button id="themeToggleBtn" class="secondary" type="button">Theme: auto</button>
+            <button id="saveSnapshotBtn" class="secondary" type="button">Save snapshot</button>
+            <button id="exportSnapshotBtn" class="secondary" type="button">Export snapshot</button>
+          </div>
           <div class="field locale-field">
             <label id="languageLabel" for="languageSelect">Language</label>
             <select id="languageSelect">
@@ -783,6 +1026,21 @@
           <h3 id="cachedSnapshotHeading">Cached Snapshot</h3>
           <div id="cacheSummary" class="message">Nothing stored yet.</div>
           <div id="cachedSnapshotFooter" class="footer-note">Local cache is only for UX and history. The ESP32 remains the source of truth.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="savedHistoryHeading">Saved History</h3>
+              <div id="savedHistoryCopy" class="card-copy">Snapshots saved here stay separate from the active ECU session.</div>
+            </div>
+            <div class="history-header-actions">
+              <button id="clearHistoryBtn" class="secondary" type="button">Clear history</button>
+            </div>
+          </div>
+          <div id="historyList" class="history-list"></div>
+          <div id="historyDetail" class="message history-detail">No saved snapshot selected.</div>
+          <div id="savedHistoryFooter" class="footer-note">Saved history is local to this browser only.</div>
         </section>
 
         <section class="card">

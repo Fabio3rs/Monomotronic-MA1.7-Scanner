@@ -1035,6 +1035,51 @@ void ConfigureRoutes() {
         request->send(response);
     });
 
+    server.on("/manifest.webmanifest", HTTP_GET,
+              [](AsyncWebServerRequest *request) {
+                  if (IsWebUiAvailable()) {
+                      AsyncWebServerResponse *response =
+                          request->beginResponse(SPIFFS,
+                                                 "/manifest.webmanifest",
+                                                 "application/manifest+json");
+                      AddNoCacheHeaders(response);
+                      request->send(response);
+                      return;
+                  }
+                  request->send(404, "text/plain", "manifest unavailable");
+              });
+
+    server.on("/favicon.svg", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (IsWebUiAvailable()) {
+            AsyncWebServerResponse *response =
+                request->beginResponse(SPIFFS, "/favicon.svg",
+                                       "image/svg+xml");
+            AddNoCacheHeaders(response);
+            request->send(response);
+            return;
+        }
+        request->send(404, "text/plain", "favicon unavailable");
+    });
+
+    server.on("/icon.svg", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (IsWebUiAvailable()) {
+            AsyncWebServerResponse *response =
+                request->beginResponse(SPIFFS, "/icon.svg", "image/svg+xml");
+            AddNoCacheHeaders(response);
+            request->send(response);
+            return;
+        }
+        request->send(404, "text/plain", "icon unavailable");
+    });
+
+    server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request) {
+        AsyncWebServerResponse *response = request->beginResponse(
+            302, "text/plain", "");
+        response->addHeader("Location", "/favicon.svg");
+        AddNoCacheHeaders(response);
+        request->send(response);
+    });
+
     server.on("/boot.js", HTTP_GET, [](AsyncWebServerRequest *request) {
         SendBootConfigJs(request);
     });

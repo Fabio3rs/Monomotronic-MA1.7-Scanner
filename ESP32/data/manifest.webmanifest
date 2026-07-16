@@ -1,0 +1,16 @@
+{
+  "name": "MA1.7 ESP32 Scanner",
+  "short_name": "MA1.7",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10181c",
+  "theme_color": "#17353d",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
