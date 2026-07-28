@@ -116,6 +116,9 @@ bool ESP32Monomotronic::baudInit() {
         Serial2.end();
     }
 
+    pinMode(config_.tx_init_pin, OUTPUT);
+    pinMode(config_.aux_init_pin, OUTPUT);
+
     digitalWrite(config_.tx_init_pin, HIGH);
     digitalWrite(config_.aux_init_pin, HIGH);
     delay(200);
