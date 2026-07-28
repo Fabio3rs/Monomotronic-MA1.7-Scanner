@@ -2,6 +2,7 @@
 // FIAT TIPO 1.6ie BOSCH MONOMOTRONIC MA1.7
 
 #include "ECUMonomotronic.h"
+#include "ECUSerialCLI.h"
 #include "SensorDecoders.h"
 #include "SerialPort.h"
 #include <array>
@@ -12,7 +13,9 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -334,17 +337,36 @@ int ctrlc_handler(int sig) {
 }
 
 int main(int argc, char **argv) {
-    const char *port = "/dev/ttyUSB0";
+    const std::vector<std::string_view> args = MakeCLIArgViews(argc, argv);
+    const ECUSerialCLIParseResult parse_result = ParseECUSerialCLIArgs(args);
 
-    if (argc > 1) {
-        port = argv[1];
-        std::cout << "Using port: " << port << std::endl;
-    } else {
-        std::cout << "No port specified, using /dev/ttyUSB0" << std::endl;
+    if (parse_result.status == ECUSerialCLIParseStatus::HelpRequested) {
+        std::cout << parse_result.message;
+        return 0;
     }
 
-    std::cout << "ECUMonomotronic ECUMgr connect to " << port << std::endl;
-    ECUMonomotronic ECUMgr(port);
+    if (parse_result.status == ECUSerialCLIParseStatus::Error) {
+        std::cerr << parse_result.message << std::endl;
+        return 1;
+    }
+
+    const ECULinkConfig &config = parse_result.config;
+
+    std::cout << "Using port: " << config.port << std::endl;
+    std::cout << "Using baud: " << ToString(config.session_baud) << std::endl;
+    if (parse_result.baud_source == ECUSerialBaudSource::ExplicitOverride) {
+        std::cout << "Baud source: explicit override" << std::endl;
+    } else if (config.profile.has_value()) {
+        std::cout << "Baud source: profile default" << std::endl;
+    }
+    if (config.profile.has_value()) {
+        std::cout << "Using profile: " << ToString(config.profile.value())
+                  << std::endl;
+    }
+
+    std::cout << "ECUMonomotronic ECUMgr connect to " << config.port
+              << std::endl;
+    ECUMonomotronic ECUMgr(config);
 
     /*while (true)
     {

@@ -29,212 +29,206 @@ SOFTWARE.
 */
 
 #include "Arduino.h"
+#include "SensorCatalog.h"
+#include "optional.h"
+#include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <mutex>
-#include <thread>
-#include <vector>
-
-class nulloptional {};
-
-static nulloptional nullopt;
-
-template <class T> class optional {
-    T val;
-    bool hasv;
-
-  public:
-    T &value() { return val; };
-    bool has_value() const { return hasv; };
-
-    operator bool() const { return hasv; }
-
-    optional<T> &operator=(const T &v) {
-        val = v;
-        hasv = true;
-
-        return *this;
-    }
-
-    optional<T> &operator=(const optional<T> &opt) {
-        if (opt.hasv)
-            val = opt.val;
-
-        hasv = opt.hasv;
-
-        return *this;
-    }
-
-    optional<T> &operator=(T &&v) {
-        val = std::move(v);
-        hasv = true;
-
-        return *this;
-    }
-
-    optional<T> &operator=(optional<T> &&opt) {
-        if (opt.hasv)
-            val = std::move(opt.val);
-
-        hasv = opt.hasv;
-        opt.hasv = false;
-
-        return *this;
-    }
-
-    optional(const optional &) = default;
-    optional(optional &&) = default;
-    optional(T &&v) : hasv(true), val(std::move(v)) {}
-    optional(const T &v) : hasv(true), val(v) {}
-    optional() : hasv(false) {}
-    optional(const nulloptional &n) : hasv(false) {}
-};
+#include <string.h>
 
 typedef optional<uint8_t> ECUByte;
 
+struct ESP32ScannerConfig {
+    uint32_t session_baud{4800};
+    uint8_t init_address{0x10};
+    uint8_t tx_init_pin{0};
+    uint8_t aux_init_pin{2};
+    uint32_t read_timeout_ms{250};
+    uint32_t write_timeout_ms{250};
+    uint32_t command_timeout_ms{1800};
+    uint32_t keep_alive_ms{500};
+
+    bool disable_uart_in_slow_init{false};
+};
+
 struct ECUmmpacket {
-    uint8_t size;
-    uint8_t counter;
-    uint8_t frametypeid;
+    static constexpr size_t MAX_DATA_SIZE = 252;
 
-    std::vector<uint8_t> data;
+    uint8_t size{3};
+    uint8_t counter{0};
+    uint8_t frametypeid{0};
+    std::array<uint8_t, MAX_DATA_SIZE> data{};
+    uint8_t data_length{0};
+    uint8_t end{0x03};
+};
 
-    uint8_t end;
+struct ECUResponseCollection {
+    static constexpr size_t MAX_RESPONSE_PACKETS = 10;
 
-    ECUmmpacket &operator=(ECUmmpacket &&) = default;
-    ECUmmpacket &operator=(const ECUmmpacket &) = default;
-    ECUmmpacket(ECUmmpacket &&) = default;
-    ECUmmpacket(const ECUmmpacket &) = default;
+    std::array<ECUmmpacket, MAX_RESPONSE_PACKETS> packets{};
+    size_t count{0};
 
-    ECUmmpacket() : size(3), counter(0), frametypeid(0), end(0x03) {}
+    void clear() { count = 0; }
+
+    bool add(const ECUmmpacket &pkt) {
+        if (count >= packets.size()) {
+            return false;
+        }
+        packets[count++] = pkt;
+        return true;
+    }
+};
+
+struct ECUHealthSnapshot {
+    uint32_t packets_sent{0};
+    uint32_t packets_received{0};
+    uint32_t timeouts{0};
+    uint32_t retries{0};
+    uint32_t reconnects{0};
+    uint32_t ack_errors{0};
+    uint32_t packet_errors{0};
+    uint32_t last_packet_ms{0};
+    uint8_t last_collection_table{0};
+};
+
+struct ECUStatusSnapshot {
+    const char *protocol_state{"disconnected"};
+    const char *current_operation{"none"};
+    bool connected{false};
+    bool can_accept_commands{false};
+    bool busy{false};
+    bool init_ready{false};
+    bool echo_byte_present{false};
+    bool thread_started{false};
+    int task_state{0};
+    int freertos_state{0};
+    int error_code{0};
+    int debug_line{0};
 };
 
 class ESP32Monomotronic {
-    bool inited;
-    bool ECUInited;
-    std::atomic<int> taskState;
-    std::atomic<int> ECUThreadErr;
-    std::atomic<bool> ECUConnected;
-    std::atomic<bool> baudEchoOK;
-    std::atomic<bool> initPacketsOk;
-    std::atomic<int> debug_line;
+  public:
+    enum class OperationKind : uint8_t {
+        None = 0,
+        ReadErrors,
+        ReadSensor,
+        ReadMemory,
+        ReadCollection,
+        ClearErrors,
+        DetermineCollectionTable
+    };
 
-    std::atomic<bool> readSensors;
+  private:
+    struct PendingCommand {
+        uint8_t frameid{0};
+        std::array<uint8_t, 16> data{};
+        uint8_t data_length{0};
+    };
 
-    std::mutex requestCommandMutex;
-    struct {
-        uint8_t frameid;
-        std::vector<uint8_t> data;
-    } newCommandFrame;
-    std::atomic<bool> newCommandAvailable;
+    std::atomic<bool> inited_{false};
+    std::atomic<int> taskState_{0};
+    std::atomic<int> ECUThreadErr_{0};
+    std::atomic<bool> ECUConnected_{false};
+    std::atomic<bool> baudEchoOK_{false};
+    std::atomic<bool> initPacketsOk_{false};
+    std::atomic<int> debug_line_{0};
+    std::atomic<bool> ECUThreadCanAcceptCommands_{false};
+    std::atomic<bool> ECUNewCommandAvailable_{false};
+    std::atomic<bool> ECUCommandResultAvailable_{false};
+    std::atomic<bool> stopRequested_{false};
+    std::mutex initMutex_;
+    std::mutex commandMutex_;
+    std::mutex sessionMutex_;
+    mutable std::mutex initPacketsMutex_;
 
-    std::mutex getResultCommandMutex;
-    std::deque<ECUmmpacket> lastCommandPackets;
-    bool newCommandPacketsAvailable;
-    std::atomic<bool> ECUThreadCanAcceptCommands;
-    std::mutex ECUNewCommandMutex;
-    ECUmmpacket ECUNewCommandTemp;
-    std::atomic<bool> ECUNewCommandAvailable;
-    std::atomic<bool> ECUWaitAndReconnect;
+    ESP32ScannerConfig config_{};
+    PendingCommand pendingCommand_{};
+    ECUmmpacket ECUResponse_{};
+    ECUResponseCollection initPackets_{};
+    int ECUPacketCounter_{0};
+    TaskHandle_t Task1_{nullptr};
+    std::atomic<OperationKind> activeOperation_{OperationKind::None};
 
-    std::atomic<bool> ECUCommandResultAvailable;
-    ECUmmpacket ECUResponse;
-
-    int ECUPacketCounter;
-
-    TaskHandle_t Task1;
+    std::atomic<uint32_t> packets_sent_{0};
+    std::atomic<uint32_t> packets_received_{0};
+    std::atomic<uint32_t> timeouts_{0};
+    std::atomic<uint32_t> retries_{0};
+    std::atomic<uint32_t> reconnects_{0};
+    std::atomic<uint32_t> ack_errors_{0};
+    std::atomic<uint32_t> packet_errors_{0};
+    std::atomic<uint32_t> last_packet_ms_{0};
+    std::atomic<uint8_t> last_collection_table_{0};
 
     static void updatePacketCounter(ESP32Monomotronic &mm,
                                     const ECUmmpacket &p);
+    static void sendInitPins(uint8_t port1, uint8_t port2, uint8_t value);
 
-    std::deque<ECUmmpacket> initPackets;
-    ECUByte ECURead(int timeout = 1000);
+    ECUByte ECURead(uint32_t timeout = 1000);
     bool ECUWrite(uint8_t b);
-
-    ECUByte ECUReadAndResponse(int timeout = 1000);
-    bool ECUWriteWaitResponse(uint8_t b, int timeout = 1000);
-
-    std::vector<uint8_t> ECUReadSequential(int size, int timeout = 1000);
-    bool ECUWriteSequential(const std::vector<uint8_t> &data,
-                            int timeout = 1000);
-
-    optional<ECUmmpacket> ECUReadPacket(int timeout = 1000);
-    bool
-    ECUWritePacket(uint8_t frameid,
-                   const std::vector<uint8_t> &data = std::vector<uint8_t>(),
-                   int timeout = 1000);
-
-    optional<std::deque<ECUmmpacket>>
-    ECURequestData(uint8_t frameid, uint8_t eECUFrameID,
-                   const std::vector<uint8_t> &data = std::vector<uint8_t>(),
-                   int timeout = 1000);
-
-    void debug_regiter_err(const char *file, int line) { debug_line = line; }
-
+    ECUByte ECUReadAndResponse(uint32_t timeout = 1000);
+    bool ECUWriteWaitResponse(uint8_t b, uint32_t timeout = 1000);
+    bool ECUReadSequential(uint8_t *buffer, uint8_t size, uint32_t timeout);
+    bool ECUWriteSequential(const uint8_t *data, uint8_t size,
+                            uint32_t timeout);
+    optional<ECUmmpacket> ECUReadPacket(uint32_t timeout = 1000);
+    bool ECUWritePacket(uint8_t frameid, const uint8_t *data = nullptr,
+                        uint8_t length = 0, uint32_t timeout = 1000);
+    optional<ECUResponseCollection>
+    ECURequestData(uint8_t frameid, uint8_t expectedFrame,
+                   const uint8_t *data = nullptr, uint8_t length = 0,
+                   uint32_t timeout = 1000);
+    bool waitForResponse(optional<ECUmmpacket> &response, uint32_t timeout_ms);
+    void configureSerial();
+    bool baudInit();
+    void recordPacketActivity(bool sent);
+    bool tryStartOperation(OperationKind operation);
+    void finishOperation();
+    void resetInitPackets();
+    bool appendInitPacket(const ECUmmpacket &packet);
+    void debug_regiter_err(const char *file, int line) { debug_line_ = line; }
     static void commThread(void *mm);
 
   public:
-    int getThreadErrorCode() const { return ECUThreadErr; }
-
-    int getThreadTaskState() const { return taskState; }
-
-    bool isECUConnected() const { return ECUConnected; }
-
-    bool isEchoBytePresent() const { return baudEchoOK; }
-
-    int getDebugLine() const { return debug_line; }
-
-    int requestCommand(uint8_t frameid, const std::vector<uint8_t> data) {
-        {
-            std::lock_guard<std::mutex> lck(requestCommandMutex);
-            newCommandFrame.frameid = frameid;
-            newCommandFrame.data = std::move(data);
-        }
-        newCommandAvailable = true;
-
-        return 0;
+    int getThreadErrorCode() const { return ECUThreadErr_; }
+    int getThreadTaskState() const { return taskState_; }
+    bool isECUConnected() const { return ECUConnected_; }
+    bool isEchoBytePresent() const { return baudEchoOK_; }
+    int getDebugLine() const { return debug_line_; }
+    const ESP32ScannerConfig &getConfig() const { return config_; }
+    void setConfig(const ESP32ScannerConfig &config) { config_ = config; }
+    bool getInitPacketsSnapshot(ECUResponseCollection &out) const;
+    ECUStatusSnapshot getStatusSnapshot() const;
+    bool isBusy() const {
+        return activeOperation_.load() != OperationKind::None;
     }
+    bool isInitReady() const { return initPacketsOk_; }
 
-    optional<std::deque<ECUmmpacket>> getLastCommandPackets() {
-        std::lock_guard<std::mutex> lck(getResultCommandMutex);
-
-        if (newCommandPacketsAvailable) {
-            return std::move(lastCommandPackets);
-        }
-
-        return nullopt;
-    }
-
-    const std::deque<ECUmmpacket> *getInitPackets() const {
-        if (initPacketsOk) {
-            return &initPackets;
-        }
-
-        return nullptr;
-    }
-
-    // Custom commands
-    // See ECU_FRAMES_ID
     optional<ECUmmpacket> getECUResponse();
-    bool
-    sendECURequest(uint8_t frameid,
-                   const std::vector<uint8_t> &data = std::vector<uint8_t>());
+    bool sendECURequest(uint8_t frameid, const uint8_t *data = nullptr,
+                        uint8_t length = 0);
 
-    eTaskState getThreadState() {
-        if (inited)
-            return eTaskGetState(Task1);
+    eTaskState getThreadState() const {
+        if (inited_.load(std::memory_order_acquire)) {
+            return eTaskGetState(Task1_);
+        }
         return eDeleted;
     }
 
-    bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
+    bool canAcceptCommands() const { return ECUThreadCanAcceptCommands_; }
 
-    // Wrapper to commands
-    optional<std::deque<ECUmmpacket>> ECUReadErrors();
-    optional<std::deque<ECUmmpacket>> ECUReadSensor(uint8_t sensorID);
+    optional<ECUResponseCollection> ECUReadErrors();
+    optional<ECUResponseCollection> ECUReadSensor(uint8_t sensorID);
+    optional<ECUResponseCollection>
+    readECUMemory(uint8_t addressHigh, uint8_t addressLow, uint8_t length);
+    optional<ECUResponseCollection> requestSensorCollection();
     optional<ECUmmpacket> ECUCleanErrors();
+    uint8_t determineCollectionTable();
+    ECUHealthSnapshot getHealthSnapshot() const;
+    const char *getCurrentOperationName() const;
+    const char *getProtocolStateName() const;
 
-    // Source: http://www.nailed-barnacle.co.uk/coupe/startrek/startrek.html
     enum ECU_FRAMES_ID {
         ECU_DATA_MEMORY_READ = 0x01,
         ECU_REQ_ACTUATOR = 0x04,
@@ -243,16 +237,34 @@ class ESP32Monomotronic {
         ECU_READ_ERRORS_CODE = 0x07,
         ECU_ACK_CODE = 0x09,
         ECU_NOT_ACK_CODE = 0x0A,
+        ECU_REQ_SENSOR_COLLECTION = 0x12,
+        ECU_RESP_SENSOR_COLLECTION = 0xF4,
         ECU_INIT_STRING = 0xF6,
         ECU_REQUEST_ADC_CODE = 0xFB,
         ECU_ERROR_DATA_CODE = 0xFC,
         ECU_READ_DATA_CODE = 0xFE
     };
 
-    // Error codes to description
-    static const char *errorPacketToString(const ECUmmpacket &p, bool &present);
+    enum ErrorCode {
+        ERR_NONE = 0,
+        ERR_HANDSHAKE_KEY = 1,
+        ERR_HANDSHAKE_TIMEOUT = 3,
+        ERR_KEEPALIVE = 4,
+        ERR_PACKET_WRITE = 7,
+        ERR_PACKET_READ = 9,
+        ERR_CLEAR_SEND_TIMEOUT = 12,
+        ERR_CLEAR_RESPONSE_TIMEOUT = 13,
+        ERR_PACKET_END = 14,
+        ERR_PACKET_SIZE = 15,
+        ERR_PACKET_UNEXPECTED = 16,
+        ERR_TASK_CREATE = 17
+    };
+
+    static const char *errorPacketToString(const ECUmmpacket &p, bool &present,
+                                           TextLocale locale);
 
     bool init();
+    void stop() { stopRequested_ = true; }
 
     ESP32Monomotronic();
 };

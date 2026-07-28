@@ -246,11 +246,75 @@ The project requires specific development tools and dependencies:
 g++ -std=c++17 -pthread -o ecuserial src/ECUSerial/*.cpp
 
 # ESP32 Build (PlatformIO)
-pio run --target upload --environment esp32dev
+pio run -e esp32dev
+pio run -e esp32dev -t upload
+pio run -e esp32dev -t uploadfs
+pio device monitor -b 115200
 
 # Windows Build (Visual Studio)
 MSBuild ECUScanner.sln /p:Configuration=Release
 ```
+
+### ESP32 PlatformIO Workflow
+The repository includes a ready-to-use `platformio.ini` for the ESP32 firmware.
+
+- Environment: `esp32dev`
+- Source entrypoint: `ESP32/ESP32.ino`
+- Web assets directory: `ESP32/data/`
+- Filesystem: `SPIFFS`
+- Pinned platform: `espressif32@5.3.0`
+- Arduino core line used by this setup: `framework-arduinoespressif32 2.0.6`
+
+The ESP32 firmware and the web interface are flashed separately.
+Running `pio run -e esp32dev` or `pio run -e esp32dev -t upload` installs only
+the firmware. To serve the web UI, you must also flash the SPIFFS image built
+from `ESP32/data/` with `pio run -e esp32dev -t uploadfs`.
+
+For end users, the practical effect is simple: if you only upload the firmware,
+the ESP32 may start and answer on the serial side, but the browser interface
+will be missing or incomplete. After every firmware flash on a new board, also
+run `uploadfs` so the HTML/JS files for the web dashboard are copied to the
+device.
+
+This platform version is intentionally pinned because it matches the Wi-Fi AP
+behavior that worked in practice. Newer ESP32 Arduino core lines caused AP
+authentication regressions during testing.
+
+Typical commands:
+
+```bash
+# Optional: use a writable PlatformIO home if your default one has permission issues
+export PLATFORMIO_CORE_DIR=/tmp/piohome
+
+# Compile firmware
+pio run -e esp32dev
+
+# Upload firmware to the ESP32
+pio run -e esp32dev -t upload
+
+# Required for the web UI: upload the SPIFFS image built from ESP32/data/
+pio run -e esp32dev -t uploadfs
+
+# Open serial monitor
+pio device monitor -b 115200
+```
+
+If you just want to use the web interface and are unsure what to run, use this
+order:
+
+```bash
+pio run -e esp32dev -t upload
+pio run -e esp32dev -t uploadfs
+```
+
+GitHub Actions also builds the ESP32 firmware and the SPIFFS image, then
+publishes a downloadable artifact named `esp32-esp32dev-binaries` containing
+`firmware.bin`, `bootloader.bin`, `partitions.bin`, `spiffs.bin`, and
+`manifest.txt`.
+
+If `uploadfs` was skipped, the web interface will not be fully available and
+requests may return `404`. If the web interface returns `404` or SPIFFS mount
+fails after flashing, run `uploadfs` again.
 
 ## Usage and Operation
 
@@ -520,8 +584,13 @@ Special thanks to the automotive reverse engineering community and the original 
 
 ### ESP32
 - Use Arduino IDE or PlatformIO
-- Upload `ESP32Monomotronic.cpp` or `MMScanner.ino` to your board
+- PlatformIO entrypoint is `ESP32/ESP32.ino`
+- Upload firmware with `pio run -e esp32dev -t upload`
+- Upload the web UI in `ESP32/data/` with `pio run -e esp32dev -t uploadfs`
+- `uploadfs` is required for the web UI; firmware upload alone does not flash the files in `ESP32/data/`
 - For web interface, connect to the ESP32’s WiFi AP
+- If PlatformIO reports permission errors in its home directory, set a writable
+  `PLATFORMIO_CORE_DIR` or fix permissions before running build/upload
 
 ### C# GUI
 - Open the solution in Visual Studio

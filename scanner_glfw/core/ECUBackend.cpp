@@ -60,16 +60,15 @@ ECUBackend &ECUBackend::Instance() {
 }
 
 ECUBackend::ECUBackend()
-    : running_(false), connected_(false), paused_(false), latency_ms_(0.0f),
-      error_rate_(0.0f), last_table_id_(0), sensors_(nullptr),
-      table1_indices_{}, table2_indices_{}, sensor_count_(0),
-      all_sensors_mask_(0), active_sensor_mask_(0), cached_ram_b3_(0),
-      ram_b3_valid_(false), ram_b3_cache_time_(),
-      last_sample_timestamp_sec_(0.0) {}
+    : running_(false), connected_(false), latency_ms_(0.0f), error_rate_(0.0f),
+      last_table_id_(0), sensors_(nullptr), table1_indices_{},
+      table2_indices_{}, sensor_count_(0), all_sensors_mask_(0),
+      active_sensor_mask_(0), cached_ram_b3_(0), ram_b3_valid_(false),
+      ram_b3_cache_time_(), last_sample_timestamp_sec_(0.0), paused_(false) {}
 
 ECUBackend::~ECUBackend() { Stop(); }
 
-bool ECUBackend::Start(const std::string &port,
+bool ECUBackend::Start(const ECULinkConfig &config,
                        std::vector<SensorState> *sensors) {
     if (running_) {
         return true;
@@ -79,7 +78,7 @@ bool ECUBackend::Start(const std::string &port,
         return false;
     }
 
-    port_ = port;
+    link_config_ = config;
     sensors_ = sensors;
 
     BuildCollectionLookup();
@@ -95,7 +94,7 @@ bool ECUBackend::Start(const std::string &port,
     cached_ram_b3_.store(0, std::memory_order_relaxed);
     ram_b3_valid_.store(false, std::memory_order_relaxed);
 
-    ecu_ = std::make_unique<ECUMonomotronic>(port_.c_str());
+    ecu_ = std::make_unique<ECUMonomotronic>(link_config_);
 
     if (!ecu_->portIsOpen()) {
         ecu_.reset();

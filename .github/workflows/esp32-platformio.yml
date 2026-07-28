@@ -1,0 +1,64 @@
+name: ESP32 PlatformIO CI
+
+on:
+  push:
+    paths:
+      - ".github/workflows/esp32-platformio.yml"
+      - "platformio.ini"
+      - "ESP32/**"
+  pull_request:
+    paths:
+      - ".github/workflows/esp32-platformio.yml"
+      - "platformio.ini"
+      - "ESP32/**"
+  workflow_dispatch:
+
+jobs:
+  build-esp32:
+    runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_CORE_DIR: /tmp/piohome
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            ${{ env.PLATFORMIO_CORE_DIR }}
+          key: ${{ runner.os }}-platformio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build ESP32 firmware
+        run: pio run -e esp32dev
+
+      - name: Build ESP32 SPIFFS image
+        run: pio run -e esp32dev -t buildfs
+
+      - name: Package ESP32 binaries
+        run: |
+          mkdir -p dist/esp32dev
+          cp .pio/build/esp32dev/firmware.bin dist/esp32dev/
+          cp .pio/build/esp32dev/bootloader.bin dist/esp32dev/
+          cp .pio/build/esp32dev/partitions.bin dist/esp32dev/
+          cp .pio/build/esp32dev/spiffs.bin dist/esp32dev/
+          printf 'commit=%s\nenvironment=esp32dev\nfiles=firmware.bin,bootloader.bin,partitions.bin,spiffs.bin\n' "${GITHUB_SHA}" > dist/esp32dev/manifest.txt
+
+      - name: Upload ESP32 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-esp32dev-binaries
+          path: dist/esp32dev/

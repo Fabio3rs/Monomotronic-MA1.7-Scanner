@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f1efe7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>MA1.7 ESP32 Scanner</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #f1efe7;
+      --panel: #fffaf0;
+      --panel-2: #f8f3e3;
+      --ink: #1f2a30;
+      --muted: #6e756f;
+      --line: #d8cfbb;
+      --ok: #2f7d4f;
+      --warn: #a36f12;
+      --err: #aa3d2d;
+      --accent: #0f6c7c;
+      --accent-2: #d9efe8;
+      --shadow: 0 12px 30px rgba(40, 47, 40, 0.08);
+      --hero-ink: #f7f6f1;
+      --hero-muted: rgba(247, 246, 241, 0.82);
+      --hero-panel: rgba(255, 255, 255, 0.08);
+      --hero-panel-line: rgba(255, 255, 255, 0.14);
+      --surface-soft: rgba(255, 255, 255, 0.65);
+      --surface-list: rgba(255, 255, 255, 0.7);
+      --surface-detail: rgba(255, 255, 255, 0.5);
+      --surface-message: #fff;
+      --surface-message-err: #fff0ed;
+      --surface-message-ok: #edf8f1;
+      --input-bg: #fff;
+      --hero-bg: linear-gradient(135deg, #17353d 0%, #244e56 55%, #2b6b62 100%);
+      --topbar-bg: rgba(255, 250, 240, 0.92);
+      --hero-heading: rgba(247, 246, 241, 0.78);
+      --spark-fill: rgba(15, 108, 124, 0.16);
+      --button-spinner-track: rgba(31, 42, 48, 0.22);
+      --body-bg:
+        radial-gradient(circle at top right, rgba(15, 108, 124, 0.08), transparent 26%),
+        linear-gradient(180deg, #f6f2e8 0%, var(--bg) 100%);
+      --theme-color: #f1efe7;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    html {
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #10181c;
+      --panel: #162027;
+      --panel-2: #1a252d;
+      --ink: #edf3f6;
+      --muted: #a7bac2;
+      --line: #2d424e;
+      --ok: #79d79a;
+      --warn: #f2be5d;
+      --err: #ff8a76;
+      --accent: #7fd5dd;
+      --accent-2: rgba(127, 213, 221, 0.15);
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+      --hero-ink: #f7fbfc;
+      --hero-muted: rgba(247, 251, 252, 0.82);
+      --hero-panel: rgba(9, 18, 22, 0.26);
+      --hero-panel-line: rgba(127, 213, 221, 0.18);
+      --surface-soft: rgba(11, 20, 24, 0.45);
+      --surface-list: rgba(11, 20, 24, 0.56);
+      --surface-detail: rgba(11, 20, 24, 0.42);
+      --surface-message: #111b20;
+      --surface-message-err: rgba(170, 61, 45, 0.18);
+      --surface-message-ok: rgba(47, 125, 79, 0.18);
+      --input-bg: #0f171b;
+      --hero-bg: linear-gradient(135deg, #09161a 0%, #0f2730 55%, #14413d 100%);
+      --topbar-bg: rgba(22, 32, 39, 0.92);
+      --hero-heading: rgba(247, 251, 252, 0.78);
+      --spark-fill: rgba(127, 213, 221, 0.18);
+      --button-spinner-track: rgba(237, 243, 246, 0.22);
+      --body-bg:
+        radial-gradient(circle at top right, rgba(127, 213, 221, 0.1), transparent 28%),
+        linear-gradient(180deg, #0c1317 0%, var(--bg) 100%);
+      --theme-color: #10181c;
+      color-scheme: dark;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html[data-theme="auto"] {
+        --bg: #10181c;
+        --panel: #162027;
+        --panel-2: #1a252d;
+        --ink: #edf3f6;
+        --muted: #a7bac2;
+        --line: #2d424e;
+        --ok: #79d79a;
+        --warn: #f2be5d;
+        --err: #ff8a76;
+        --accent: #7fd5dd;
+        --accent-2: rgba(127, 213, 221, 0.15);
+        --shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+        --hero-ink: #f7fbfc;
+        --hero-muted: rgba(247, 251, 252, 0.82);
+        --hero-panel: rgba(9, 18, 22, 0.26);
+        --hero-panel-line: rgba(127, 213, 221, 0.18);
+        --surface-soft: rgba(11, 20, 24, 0.45);
+        --surface-list: rgba(11, 20, 24, 0.56);
+        --surface-detail: rgba(11, 20, 24, 0.42);
+        --surface-message: #111b20;
+        --surface-message-err: rgba(170, 61, 45, 0.18);
+        --surface-message-ok: rgba(47, 125, 79, 0.18);
+        --input-bg: #0f171b;
+        --hero-bg: linear-gradient(135deg, #09161a 0%, #0f2730 55%, #14413d 100%);
+        --body-bg:
+          radial-gradient(circle at top right, rgba(127, 213, 221, 0.1), transparent 28%),
+          linear-gradient(180deg, #0c1317 0%, var(--bg) 100%);
+        --theme-color: #10181c;
+        color-scheme: dark;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--body-bg);
+      color: var(--ink);
+    }
+
+    .shell {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 16px 14px 32px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      margin-bottom: 14px;
+      padding-top: 4px;
+    }
+
+    .topbar-inner {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border: 1px solid rgba(216, 207, 187, 0.85);
+      border-radius: 18px;
+      background: var(--topbar-bg);
+      box-shadow: 0 10px 24px rgba(40, 47, 40, 0.08);
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-brand {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .topbar-subtitle {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .topbar-actions,
+    .hero-top,
+    .actions,
+    .status-grid,
+    .tabs,
+    .row,
+    .hero-badges,
+    .card-title-row,
+    .profile-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .topbar-actions {
+      justify-content: flex-end;
+    }
+
+    .title {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      color: rgba(247, 246, 241, 0.8);
+      font-size: 0.95rem;
+    }
+
+    .pill, .chip, button, select, input {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font: inherit;
+    }
+
+    .pill {
+      padding: 7px 12px;
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--hero-ink);
+      font-size: 0.88rem;
+    }
+
+    .pill.accent {
+      background: rgba(217, 239, 232, 0.18);
+      border-color: rgba(217, 239, 232, 0.2);
+    }
+
+    .topbar .pill {
+      background: rgba(15, 108, 124, 0.08);
+      border-color: rgba(15, 108, 124, 0.16);
+      color: var(--accent);
+    }
+
+    .chip {
+      padding: 7px 11px;
+      background: rgba(15, 108, 124, 0.08);
+      border-color: rgba(15, 108, 124, 0.18);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .hero {
+      background: var(--hero-bg);
+      color: var(--hero-ink);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    .hero-top {
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .hero-copy,
+    .hero-actions,
+    .stack,
+    .field,
+    .connection-grid,
+    .action-stack,
+    .steps,
+    .support-body,
+    .list,
+    .table {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero-copy {
+      max-width: 560px;
+    }
+
+    .hero-link,
+    .hero-note,
+    .step-copy {
+      color: var(--hero-muted);
+      font-size: 0.92rem;
+    }
+
+    .hero-link {
+      word-break: break-word;
+    }
+
+    .hero-link a {
+      color: var(--hero-ink);
+    }
+
+    .hero-status-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .hero-panel,
+    .card {
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-panel {
+      background: var(--hero-panel);
+      border: 1px solid var(--hero-panel-line);
+    }
+
+    .hero-panel h2,
+    .card h2,
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-panel h2 {
+      color: var(--hero-heading);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+
+    .card.alt {
+      background: var(--panel-2);
+    }
+
+    .card-title-row {
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .card-copy {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .hero-panel .card-copy {
+      color: rgba(247, 246, 241, 0.82);
+    }
+
+    .hero-panel .field label,
+    .hero-panel .inline-note,
+    .hero-panel .small {
+      color: rgba(247, 246, 241, 0.82);
+    }
+
+    .primary-status {
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .primary-status-detail {
+      color: rgba(247, 246, 241, 0.82);
+      white-space: pre-wrap;
+      min-height: 44px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+    }
+
+    .connection-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .inline-note {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(15, 108, 124, 0.08);
+      border: 1px solid rgba(15, 108, 124, 0.18);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+    }
+
+    .step-title {
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .status-grid {
+      align-items: stretch;
+    }
+
+    .metric {
+      flex: 1 1 150px;
+      min-width: 140px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .err { color: var(--err); }
+
+    .tab {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      background: var(--accent-2);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .tab:disabled,
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button {
+      padding: 10px 14px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    button:not(:disabled):active {
+      transform: translateY(1px);
+    }
+
+    button.secondary {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    button.warn {
+      background: var(--warn);
+      color: #fff;
+    }
+
+    button.danger {
+      background: var(--err);
+      color: #fff;
+    }
+
+    .message {
+      min-height: 48px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: var(--surface-message);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .message.err {
+      background: var(--surface-message-err);
+      border-color: #efc0b6;
+      color: var(--err);
+    }
+
+    .message.ok {
+      background: var(--surface-message-ok);
+      border-color: #bfdac8;
+      color: var(--ok);
+    }
+
+    .list-item, .table-row {
+      background: var(--surface-list);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .table-head {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr;
+      gap: 10px;
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .mobile-label {
+      display: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .section-meta {
+      padding: 4px 2px 0;
+    }
+
+    .mono {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      word-break: break-word;
+    }
+
+    .section-hidden { display: none; }
+
+    .locale-field {
+      min-width: 160px;
+    }
+
+    .field {
+      min-width: 90px;
+    }
+
+    .field label {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    select, input {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--input-bg);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .support-details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-detail);
+      padding: 12px 14px;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .sensor-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .history-header-actions,
+    .history-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .backup-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .backup-actions button {
+      width: 100%;
+    }
+
+    .backup-file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .history-item {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--surface-list);
+    }
+
+    .history-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-2) inset;
+    }
+
+    .history-item-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .history-title {
+      font-weight: 700;
+    }
+
+    .history-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 108, 124, 0.18);
+      background: rgba(15, 108, 124, 0.08);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .history-summary {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .history-detail {
+      min-height: 72px;
+    }
+
+    .sparkline {
+      margin-top: 8px;
+      width: 100%;
+      max-width: 180px;
+      height: 36px;
+      display: block;
+      color: var(--accent);
+    }
+
+    .sparkline polyline {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.25;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sparkline .sparkline-fill {
+      fill: var(--spark-fill);
+      stroke: none;
+    }
+
+    .sparkline-placeholder {
+      margin-top: 8px;
+      max-width: 180px;
+    }
+
+    button[data-busy="true"] {
+      position: relative;
+      padding-right: 40px;
+    }
+
+    button[data-busy="true"]::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 14px;
+      width: 14px;
+      height: 14px;
+      margin-top: -7px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.32);
+      border-top-color: currentColor;
+      animation: spin 0.8s linear infinite;
+    }
+
+    button.secondary[data-busy="true"]::after {
+      border-color: var(--button-spinner-track);
+      border-top-color: currentColor;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .support-details summary {
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .support-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .support-details .step-copy {
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 860px) {
+      .layout,
+      .hero-status-grid,
+      .connection-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .layout {
+        display: grid;
+      }
+
+      .hero-top,
+      .topbar-actions {
+        align-items: stretch;
+      }
+
+      .topbar-inner {
+        flex-direction: column;
+      }
+
+      .topbar-actions,
+      .topbar-actions > .field,
+      .topbar-actions > .pill {
+        width: 100%;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .table-row {
+        grid-template-columns: 1fr;
+      }
+
+      .table-head {
+        display: none;
+      }
+
+      .mobile-label {
+        display: block;
+      }
+
+      .row > .field,
+      .actions > button,
+      .row > button,
+      .action-stack > button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .shell {
+        padding: 14px 10px 24px;
+      }
+
+      .topbar-inner,
+      .hero,
+      .card {
+        border-radius: 18px;
+      }
+
+      .title {
+        font-size: 1.45rem;
+      }
+
+      .topbar-title {
+        font-size: 0.95rem;
+      }
+
+      .hero-badges {
+        display: grid;
+      }
+
+      .hero-badges .pill {
+        min-width: 0;
+      }
+
+      .tabs {
+        grid-template-columns: 1fr;
+      }
+
+      .history-item-head {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-brand">
+          <div class="topbar-title" id="topbarTitle">MA1.7 ESP32 Scanner</div>
+          <div class="topbar-subtitle" id="topbarSubtitle">Scanner portal</div>
+        </div>
+        <div class="topbar-actions">
+          <span id="primaryBadge" class="pill accent">Scanner portal ready</span>
+          <div class="toolbar-actions">
+            <button id="themeToggleBtn" class="secondary" type="button">Theme: auto</button>
+            <button id="saveSnapshotBtn" class="secondary" type="button">Save snapshot</button>
+            <button id="exportSnapshotBtn" class="secondary" type="button">Export snapshot</button>
+          </div>
+          <div class="field locale-field">
+            <label id="languageLabel" for="languageSelect">Language</label>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="pt-BR">Portugues (Brasil)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <div class="title">MA1.7 ESP32 Scanner</div>
+          <div class="subtitle">Single-request browser client with protocol-state gating.</div>
+          <div class="hero-link" id="apInfo">Connect to the scanner Wi-Fi, then open this page here if needed.</div>
+        </div>
+        <div class="hero-actions">
+          <div class="hero-badges">
+            <span id="liveBadge" class="pill">No live data yet</span>
+            <span id="netBadge" class="pill">Link idle</span>
+            <span id="cacheBadge" class="pill">Cache empty</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-status-grid">
+        <div class="hero-panel">
+          <div class="card-title-row">
+            <div>
+              <h2 id="primaryStatusHeading">Scanner Status</h2>
+              <div id="statusCardCopy" class="card-copy">Use this area to verify the Wi-Fi link and ECU readiness before reading data.</div>
+            </div>
+          </div>
+          <div id="primaryStatus" class="primary-status">Waiting for scanner status</div>
+          <div id="primaryStatusDetail" class="primary-status-detail">Checking the ESP32 and ECU link.</div>
+          <div id="networkHint" class="hero-note">If the page stops updating, reconnect to the scanner Wi-Fi and refresh.</div>
+        </div>
+
+        <div class="hero-panel">
+          <div class="card-title-row">
+            <div>
+              <h2 id="connectionHeading">Connect ECU</h2>
+              <div id="connectionLead" class="card-copy">Choose the vehicle profile first, then start the ECU session.</div>
+            </div>
+          </div>
+          <div class="connection-grid">
+            <div class="connection-actions">
+              <div class="field">
+                <label id="profileLabel" for="profileSelect">ECU profile</label>
+                <select id="profileSelect">
+                  <option value="">Loading profiles...</option>
+                </select>
+              </div>
+              <div class="action-stack">
+                <button id="connectBtn">Connect ECU</button>
+                <button id="refreshBtn" class="secondary">Refresh now</button>
+              </div>
+            </div>
+            <div class="profile-meta">
+              <span id="profileBaudChip" class="chip">Baud: --</span>
+              <span id="profileHint" class="inline-note">The selected profile defines the connection baud automatically.</span>
+            </div>
+            <div id="pollInfo" class="small">Polling status only</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="layout">
+      <main class="stack">
+        <section class="card alt">
+          <h2 id="sessionStatusHeading">Session Status</h2>
+          <div id="messageBox" class="message" aria-live="polite">Waiting for first status poll.</div>
+          <div id="statusGrid" class="status-grid"></div>
+        </section>
+
+        <section class="card">
+          <details class="support-details">
+            <summary id="onboardingHeading">How to access the scanner portal</summary>
+            <div class="support-body">
+              <div class="steps">
+                <div class="step">
+                  <div class="step-num">1</div>
+                  <div>
+                    <div class="step-title" id="step1Title">Join the scanner Wi-Fi</div>
+                    <div class="step-copy" id="step1Copy">Use the access point shown by the scanner.</div>
+                  </div>
+                </div>
+                <div class="step">
+                  <div class="step-num">2</div>
+                  <div>
+                    <div class="step-title" id="step2Title">Open the local page</div>
+                    <div class="step-copy" id="step2Copy">If the portal does not open by itself, browse to the local IP shown here.</div>
+                  </div>
+                </div>
+                <div class="step">
+                  <div class="step-num">3</div>
+                  <div>
+                    <div class="step-title" id="step3Title">Connect the ECU</div>
+                    <div class="step-copy" id="step3Copy">Wait until the scanner reports that it is ready for reads.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="card">
+          <div class="tabs" role="tablist" aria-label="Scanner data sections">
+            <button id="tab-button-live" class="tab active" data-tab="live" role="tab" aria-selected="true" aria-controls="tab-live">Live</button>
+            <button id="tab-button-dtc" class="tab" data-tab="dtc" role="tab" aria-selected="false" aria-controls="tab-dtc" tabindex="-1">DTC</button>
+            <button id="tab-button-health" class="tab" data-tab="health" role="tab" aria-selected="false" aria-controls="tab-health" tabindex="-1">Health</button>
+            <button id="tab-button-technical" class="tab" data-tab="technical" role="tab" aria-selected="false" aria-controls="tab-technical" tabindex="-1">Technical</button>
+          </div>
+
+          <div id="tab-live" class="stack" role="tabpanel" aria-labelledby="tab-button-live">
+            <div class="row">
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="loadSensorsBtn">Read live sensors</button>
+              </div>
+            </div>
+            <div id="liveMeta" class="small section-meta">No live data yet</div>
+            <div id="initStrings" class="list"></div>
+            <div class="table-head" aria-hidden="true">
+              <div>Sensor</div>
+              <div>Raw</div>
+              <div>Value</div>
+            </div>
+            <div id="sensorList" class="table"></div>
+          </div>
+
+          <div id="tab-dtc" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-dtc" hidden>
+            <div class="actions">
+              <button id="readErrorsBtn">Read DTC</button>
+              <button id="clearErrorsBtn" class="danger">Clear DTC</button>
+            </div>
+            <div id="dtcMeta" class="small section-meta">No DTC snapshot loaded yet.</div>
+            <div id="errorList" class="list"></div>
+          </div>
+
+          <div id="tab-health" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-health" hidden>
+            <button id="loadHealthBtn" class="secondary">Refresh health</button>
+            <div id="healthMeta" class="small section-meta">No health snapshot loaded yet.</div>
+            <div id="healthList" class="list"></div>
+          </div>
+
+          <div id="tab-technical" class="stack section-hidden" role="tabpanel" aria-labelledby="tab-button-technical" hidden>
+            <div id="technicalSummary" class="small">Technical tools stay outside the normal driving workflow.</div>
+            <div class="actions">
+              <button id="technicalToggleBtn" class="secondary">Technical mode off</button>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label id="memHiLabel" for="memHi">Addr HI</label>
+                <input id="memHi" value="0x00" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
+              </div>
+              <div class="field">
+                <label id="memLoLabel" for="memLo">Addr LO</label>
+                <input id="memLo" value="0x63" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
+              </div>
+              <div class="field">
+                <label id="memLenLabel" for="memLen">Length</label>
+                <input id="memLen" value="0x01" inputmode="text" pattern="0x[0-9A-Fa-f]{1,2}" spellcheck="false" autocomplete="off">
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button id="readMemoryBtn" class="secondary">Read memory</button>
+              </div>
+            </div>
+            <div id="memValidationMessage" class="small err" aria-live="polite"></div>
+            <button id="loadCatalogBtn" class="secondary">Load sensor catalog</button>
+            <div id="technicalMeta" class="small section-meta">No technical data loaded yet.</div>
+            <div id="technicalList" class="list"></div>
+          </div>
+        </section>
+      </main>
+
+      <aside class="stack">
+        <section class="card">
+          <h3 id="currentProtocolHeading">Current Protocol State</h3>
+          <div id="stateSummary" class="message" aria-live="polite">Status unavailable.</div>
+          <div id="currentProtocolFooter" class="footer-note">The browser never sends a second ECU request while another one is active.</div>
+        </section>
+
+        <section class="card">
+          <h3 id="cachedSnapshotHeading">Cached Snapshot</h3>
+          <div id="cacheSummary" class="message">Nothing stored yet.</div>
+          <div id="cachedSnapshotFooter" class="footer-note">Local cache is only for UX and history. The ESP32 remains the source of truth.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="savedHistoryHeading">Saved History</h3>
+              <div id="savedHistoryCopy" class="card-copy">Snapshots saved here stay separate from the active ECU session.</div>
+            </div>
+            <div class="history-header-actions">
+              <button id="clearHistoryBtn" class="secondary" type="button">Clear history</button>
+            </div>
+          </div>
+          <div id="historyList" class="history-list"></div>
+          <div id="historyDetail" class="message history-detail">No saved snapshot selected.</div>
+          <div id="savedHistoryFooter" class="footer-note">Saved history is local to this browser only.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="backupHeading">Browser Backup</h3>
+              <div id="backupCopy" class="card-copy">Preferences, cache, and saved history live only in this browser. Use this backup to migrate or recover local data without sending commands to the ECU.</div>
+            </div>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBackupBtn" class="secondary" type="button">Export backup</button>
+            <button id="importBackupReplaceBtn" class="secondary" type="button">Import and replace</button>
+            <button id="importBackupMergeBtn" class="secondary" type="button">Import and merge</button>
+            <input id="backupFileInput" class="backup-file-input" type="file" accept="application/json,.json">
+          </div>
+          <div id="backupMessage" class="message">Choose an export or import action for this browser backup.</div>
+          <div id="backupFooter" class="footer-note">Only ma17 local browser data is included. Session-only technical memory is never exported.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="diagnosticsHeading">Connection Diagnostics</h3>
+              <div id="diagnosticsCardCopy" class="card-copy">Use this section when the portal is reachable but the ECU session is not.</div>
+            </div>
+            <button id="rebootBtn" class="danger">Reboot ESP32</button>
+          </div>
+          <div id="diagnosticsSummary" class="message">Waiting for scanner diagnostics.</div>
+          <div id="diagnosticsFooter" class="footer-note">Use this to separate Wi-Fi portal issues from ECU session issues.</div>
+        </section>
+      </aside>
+    </div>
+  </div>
+  <script src="/boot.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

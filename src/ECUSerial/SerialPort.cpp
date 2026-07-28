@@ -6,10 +6,190 @@
 #include <linux/serial.h>
 #include <poll.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
-SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
-    : fd(-1), connected(false) {
+namespace {
+void ReportUnsupportedBaudRate(const std::string &portName, uint32_t baudRate,
+                               bool isStandardBaud) {
+    std::cerr << "Failed to configure port " << portName << " with baud "
+              << baudRate << ". ";
+    if (isStandardBaud) {
+        std::cerr << "The operating system or serial driver rejected this "
+                     "standard baud rate.";
+    } else {
+        std::cerr << "The serial driver or USB adapter does not support this "
+                     "arbitrary baud rate.";
+    }
+    std::cerr << std::endl;
+}
+
+#ifdef __linux__
+struct termios2 {
+    tcflag_t c_iflag;
+    tcflag_t c_oflag;
+    tcflag_t c_cflag;
+    tcflag_t c_lflag;
+    cc_t c_line;
+    cc_t c_cc[NCCS];
+    speed_t c_ispeed;
+    speed_t c_ospeed;
+};
+
+#ifndef BOTHER
+constexpr tcflag_t kBOTHER = 0x00001000;
+#else
+constexpr tcflag_t kBOTHER = BOTHER;
+#endif
+
+#ifndef CBAUD
+constexpr tcflag_t kCBAUD = 0x0000100f;
+#else
+constexpr tcflag_t kCBAUD = CBAUD;
+#endif
+
+#ifndef TCGETS2
+#define TCGETS2 _IOR('T', 0x2A, struct termios2)
+#endif
+
+#ifndef TCSETS2
+#define TCSETS2 _IOW('T', 0x2B, struct termios2)
+#endif
+#endif
+
+std::optional<speed_t> MapBaudRateToSpeedT(uint32_t baudRate) noexcept {
+    switch (baudRate) {
+    case 50:
+        return B50;
+    case 75:
+        return B75;
+    case 110:
+        return B110;
+    case 134:
+        return B134;
+    case 150:
+        return B150;
+    case 200:
+        return B200;
+    case 300:
+        return B300;
+    case 600:
+        return B600;
+    case 1200:
+        return B1200;
+    case 1800:
+        return B1800;
+    case 2400:
+        return B2400;
+    case 4800:
+        return B4800;
+    case 9600:
+        return B9600;
+#ifdef B19200
+    case 19200:
+        return B19200;
+#endif
+#ifdef B38400
+    case 38400:
+        return B38400;
+#endif
+#ifdef B57600
+    case 57600:
+        return B57600;
+#endif
+#ifdef B115200
+    case 115200:
+        return B115200;
+#endif
+#ifdef B230400
+    case 230400:
+        return B230400;
+#endif
+#ifdef B460800
+    case 460800:
+        return B460800;
+#endif
+#ifdef B500000
+    case 500000:
+        return B500000;
+#endif
+#ifdef B576000
+    case 576000:
+        return B576000;
+#endif
+#ifdef B921600
+    case 921600:
+        return B921600;
+#endif
+#ifdef B1000000
+    case 1000000:
+        return B1000000;
+#endif
+#ifdef B1152000
+    case 1152000:
+        return B1152000;
+#endif
+#ifdef B1500000
+    case 1500000:
+        return B1500000;
+#endif
+#ifdef B2000000
+    case 2000000:
+        return B2000000;
+#endif
+#ifdef B2500000
+    case 2500000:
+        return B2500000;
+#endif
+#ifdef B3000000
+    case 3000000:
+        return B3000000;
+#endif
+#ifdef B3500000
+    case 3500000:
+        return B3500000;
+#endif
+#ifdef B4000000
+    case 4000000:
+        return B4000000;
+#endif
+    default:
+        return std::nullopt;
+    }
+}
+
+bool SetBaudRate(int fd, termios &tty, uint32_t baudRate) noexcept {
+    if (const std::optional<speed_t> speed = MapBaudRateToSpeedT(baudRate);
+        speed.has_value()) {
+        return cfsetispeed(&tty, speed.value()) == 0 &&
+               cfsetospeed(&tty, speed.value()) == 0;
+    }
+
+#ifdef __linux__
+    struct termios2 tty2 {};
+    if (ioctl(fd, TCGETS2, &tty2) != 0) {
+        return false;
+    }
+
+    tty2.c_cflag &= ~kCBAUD;
+    tty2.c_cflag |= kBOTHER;
+    tty2.c_ispeed = baudRate;
+    tty2.c_ospeed = baudRate;
+
+    return ioctl(fd, TCSETS2, &tty2) == 0;
+#else
+    (void)fd;
+    (void)tty;
+    (void)baudRate;
+    return false;
+#endif
+}
+} // namespace
+
+SerialPort::SerialPort(const std::string &portName, uint32_t baudRate) noexcept
+    : fd(-1), connected(false), configured_baud_rate(baudRate) {
+    termios tty{};
+
     // Removed O_SYNC - doesn't help USB timing (only for file I/O persistence)
     fd = open(portName.c_str(), O_RDWR | O_NOCTTY);
     if (fd < 0) {
@@ -25,10 +205,14 @@ SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
         is_usb = true;
     }
 
-    printf("Opened port %s (ispty=%d, is_usb=%d)\n", portName.c_str(),
-           ispty ? 1 : 0, is_usb ? 1 : 0);
+    std::cout << "Opening serial port: " << portName;
+    if (is_usb) {
+        std::cout << " (USB serial adapter)";
+    } else if (ispty) {
+        std::cout << " (PTY)";
+    }
+    std::cout << std::endl;
 
-    memset(&tty, 0, sizeof tty);
     if (tcgetattr(fd, &tty) != 0) {
         perror("tcgetattr");
         ::close(fd);
@@ -39,10 +223,6 @@ SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
     // This prevents CR/LF mapping, strip bits, etc. that can corrupt binary ECU
     // data
     cfmakeraw(&tty);
-
-    // Set baud rate
-    cfsetispeed(&tty, baudRate);
-    cfsetospeed(&tty, baudRate);
 
     // Configure serial parameters
     tty.c_cflag |= (CLOCAL | CREAD);   // Enable receiver, ignore modem control
@@ -61,9 +241,27 @@ SerialPort::SerialPort(const std::string &portName, speed_t baudRate) noexcept
     tty.c_cc[VMIN] = 1;
     tty.c_cc[VTIME] = 0;
 
+    // Apply standard baud rates via termios when available.
+    const bool uses_standard_baud = MapBaudRateToSpeedT(baudRate).has_value();
+    if (uses_standard_baud && !SetBaudRate(fd, tty, baudRate)) {
+        ReportUnsupportedBaudRate(portName, baudRate, true);
+        ::close(fd);
+        fd = -1;
+        return;
+    }
+
     if (tcsetattr(fd, TCSANOW, &tty) != 0) {
         perror("tcsetattr");
         ::close(fd);
+        return;
+    }
+
+    // Apply arbitrary baud rates after tcsetattr() so BOTHER is not clobbered
+    // by a later termios write.
+    if (!uses_standard_baud && !SetBaudRate(fd, tty, baudRate)) {
+        ReportUnsupportedBaudRate(portName, baudRate, false);
+        ::close(fd);
+        fd = -1;
         return;
     }
 

@@ -3,3 +3,36 @@
 ################################################################################
 
 /.vs
+/.pio
+
+# Build outputs
+/build/
+/out/
+/bin/
+/obj/
+
+# CMake / CTest
+/Testing/
+/CMakeUserPresets.json
+
+# Python cache / virtualenvs
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Editor / IDE
+/.vscode/
+*.swp
+*.swo
+*~
+
+# Local caches and logs
+/.cache/
+*.log
+
+# Local runtime/config artifacts
+/imgui.ini

@@ -29,6 +29,8 @@ find_package(Threads REQUIRED)
 # ========== ECU Serial Library ==========
 
 set(ECU_SERIAL_SOURCES
+    src/ECUSerial/ECULinkConfig.cpp
+    src/ECUSerial/ECUSerialCLI.cpp
     src/ECUSerial/ECUMonomotronic.cpp
     src/ECUSerial/SerialPort.cpp
     src/ECUSerial/ECUHealthMetrics.cpp
@@ -36,6 +38,8 @@ set(ECU_SERIAL_SOURCES
 )
 
 set(ECU_SERIAL_HEADERS
+    src/ECUSerial/ECULinkConfig.h
+    src/ECUSerial/ECUSerialCLI.h
     src/ECUSerial/ECUMonomotronic.h
     src/ECUSerial/SerialPort.h
     src/ECUSerial/ECUHealthMetrics.h
@@ -129,9 +133,23 @@ add_subdirectory(scanner_glfw)
 
 option(BUILD_TESTS "Build unit tests" OFF)
 if(BUILD_TESTS)
+    find_package(GTest REQUIRED)
     enable_testing()
 
-    # (No root-level tests registered; scanner_glfw handles its own if present)
+    add_executable(ecuserial_tests
+        tests/test_ESP32OptionalFallback.cpp
+        tests/test_ESP32OptionalStd.cpp
+        tests/test_ECULinkConfig.cpp
+        tests/test_ECUSerialCLI.cpp
+    )
+
+    target_link_libraries(ecuserial_tests PRIVATE
+        ecuserial_lib
+        GTest::gtest
+        GTest::gtest_main
+    )
+
+    add_test(NAME ecuserial_tests COMMAND ecuserial_tests)
 endif()
 
 # ========== Documentation ==========

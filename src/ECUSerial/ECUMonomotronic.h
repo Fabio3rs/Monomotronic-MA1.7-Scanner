@@ -29,6 +29,7 @@ SOFTWARE.
 */
 
 #include "CircleMTIO.hpp"
+#include "ECULinkConfig.h"
 #include "ECUHealthMetrics.h"
 #include "PacketLogEntry.h"
 #include "SerialPort.h"
@@ -106,6 +107,7 @@ struct ECUResponseCollection {
 };
 
 class ECUMonomotronic {
+    ECULinkConfig link_config_;
     SerialPort sp;
     std::thread ECUThreadObj;
     std::atomic<bool> ECUThreadRunning;
@@ -315,6 +317,7 @@ class ECUMonomotronic {
     bool canAcceptCommands() const { return ECUThreadCanAcceptCommands; }
     bool isThreadRunning() const { return ECUThreadRunning; }
     bool portIsOpen() const noexcept { return sp.isConnected(); };
+    const ECULinkConfig &getLinkConfig() const noexcept { return link_config_; }
 
     bool isECUConnectedNow() const { return ECUConnectedNow; }
     void shouldTryAutoConnect(bool b) { ECUThreadShouldProceed = b; };
@@ -339,6 +342,7 @@ class ECUMonomotronic {
     // Public access to logging buffer for advanced features
     CircleMTIO<20480, PacketLogEntry> bytesLogging;
 
+    explicit ECUMonomotronic(const ECULinkConfig &config) noexcept;
     ECUMonomotronic(const char *port, bool enableLogging = true) noexcept;
     ~ECUMonomotronic();
 };
