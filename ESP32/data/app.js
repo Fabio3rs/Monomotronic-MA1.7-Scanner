@@ -53,6 +53,22 @@
       savedHistoryHeading: "Saved History",
       savedHistoryCopy: "Snapshots saved here stay separate from the active ECU session.",
       savedHistoryFooter: "Saved history is local to this browser only.",
+      backupHeading: "Browser Backup",
+      backupCopy: "Preferences, cache, and saved history live only in this browser. Use this backup to migrate or recover local data without sending commands to the ECU.",
+      backupFooter: "Only ma17 local browser data is included. Session-only technical memory is never exported.",
+      backupMessageIdle: "Choose an export or import action for this browser backup.",
+      exportBackup: "Export backup",
+      importBackupReplace: "Import and replace",
+      importBackupMerge: "Import and merge",
+      exportBackupDone: "Browser backup downloaded.",
+      importBackupReplaceDone: "Browser backup imported with replacement.",
+      importBackupMergeDone: "Browser backup imported with merge.",
+      importBackupCancelled: "No backup file selected.",
+      importBackupInvalidJson: "The selected file is not valid JSON.",
+      importBackupInvalidShape: "The selected file is not a compatible MA1.7 browser backup.",
+      importBackupNoData: "The backup file does not contain any supported local data.",
+      importBackupWriteFailed: "Could not write the imported backup to local storage.",
+      importBackupReadFailed: "Could not read the selected backup file.",
       clearHistory: "Clear history",
       clearHistoryConfirm: "Delete all saved local snapshots now?",
       clearHistoryDone: "Saved history cleared.",
@@ -323,6 +339,22 @@
       savedHistoryHeading: "Historico salvo",
       savedHistoryCopy: "Os snapshots salvos aqui ficam separados da sessao ativa da ECU.",
       savedHistoryFooter: "O historico salvo existe apenas neste navegador.",
+      backupHeading: "Backup do navegador",
+      backupCopy: "Preferencias, cache e historico salvo existem apenas neste navegador. Use este backup para migrar ou recuperar os dados locais sem enviar comandos para a ECU.",
+      backupFooter: "Somente dados locais ma17 do navegador entram no backup. Memoria tecnica apenas da sessao nunca e exportada.",
+      backupMessageIdle: "Escolha uma acao de exportacao ou importacao para este backup do navegador.",
+      exportBackup: "Exportar backup",
+      importBackupReplace: "Importar substituindo",
+      importBackupMerge: "Importar mesclando",
+      exportBackupDone: "Backup do navegador baixado.",
+      importBackupReplaceDone: "Backup do navegador importado substituindo os dados locais.",
+      importBackupMergeDone: "Backup do navegador importado mesclando os dados locais.",
+      importBackupCancelled: "Nenhum arquivo de backup foi selecionado.",
+      importBackupInvalidJson: "O arquivo selecionado nao contem um JSON valido.",
+      importBackupInvalidShape: "O arquivo selecionado nao e um backup de navegador MA1.7 compativel.",
+      importBackupNoData: "O arquivo de backup nao contem dados locais suportados.",
+      importBackupWriteFailed: "Nao foi possivel gravar o backup importado no armazenamento local.",
+      importBackupReadFailed: "Nao foi possivel ler o arquivo de backup selecionado.",
       clearHistory: "Limpar historico",
       clearHistoryConfirm: "Apagar agora todos os snapshots salvos localmente?",
       clearHistoryDone: "Historico salvo limpo.",
@@ -543,6 +575,9 @@
   };
 
   const CACHE_VERSION = 3;
+  const BACKUP_TYPE = "ma17-local-backup";
+  const BACKUP_VERSION = 1;
+  const STORAGE_PREFIX = "ma17.";
   const SENSOR_HISTORY_LIMIT = 24;
   const SAVED_HISTORY_LIMIT = 50;
   const dataTtls = {
@@ -573,11 +608,11 @@
   const initialProfileId = localStorage.getItem(storageKeys.prefProfile) || "";
   const initialTheme = detectInitialTheme();
   const initialSavedHistory = loadSavedHistory();
-  const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale));
-  const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale));
-  const initialDtcEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, initialLocale));
-  const initialHealthEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheHealth, initialLocale));
-  const initialCatalogEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheCatalog, initialLocale));
+  const initialStatusEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, initialLocale), initialLocale);
+  const initialLiveEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, initialLocale), initialLocale);
+  const initialDtcEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, initialLocale), initialLocale);
+  const initialHealthEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheHealth, initialLocale), initialLocale);
+  const initialCatalogEntry = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheCatalog, initialLocale), initialLocale);
   const initialTechnicalSessionEntry = loadSessionEntry(storageKeys.sessionTechnicalMemory);
 
   const state = {
@@ -607,6 +642,7 @@
     sensorHistory: {},
     selectedHistoryId: initialSavedHistory.length ? initialSavedHistory[0].id : "",
     savedHistory: initialSavedHistory,
+    pendingBackupImportMode: "replace",
     activeRequestButtonId: "",
     data: {
       status: initialStatusEntry,
@@ -699,6 +735,14 @@
     savedHistoryHeading: byId("savedHistoryHeading"),
     savedHistoryCopy: byId("savedHistoryCopy"),
     savedHistoryFooter: byId("savedHistoryFooter"),
+    backupHeading: byId("backupHeading"),
+    backupCopy: byId("backupCopy"),
+    exportBackupBtn: byId("exportBackupBtn"),
+    importBackupReplaceBtn: byId("importBackupReplaceBtn"),
+    importBackupMergeBtn: byId("importBackupMergeBtn"),
+    backupFileInput: byId("backupFileInput"),
+    backupMessage: byId("backupMessage"),
+    backupFooter: byId("backupFooter"),
     clearHistoryBtn: byId("clearHistoryBtn"),
     historyList: byId("historyList"),
     historyDetail: byId("historyDetail"),
@@ -1060,6 +1104,15 @@
     els.savedHistoryHeading.textContent = t("savedHistoryHeading");
     els.savedHistoryCopy.textContent = t("savedHistoryCopy");
     els.savedHistoryFooter.textContent = t("savedHistoryFooter");
+    els.backupHeading.textContent = t("backupHeading");
+    els.backupCopy.textContent = t("backupCopy");
+    els.exportBackupBtn.textContent = t("exportBackup");
+    els.importBackupReplaceBtn.textContent = t("importBackupReplace");
+    els.importBackupMergeBtn.textContent = t("importBackupMerge");
+    els.backupFooter.textContent = t("backupFooter");
+    if (!els.backupMessage.dataset.touched) {
+      els.backupMessage.textContent = t("backupMessageIdle");
+    }
     els.clearHistoryBtn.textContent = t("clearHistory");
     els.diagnosticsHeading.textContent = t("diagnosticsHeading");
     els.diagnosticsCardCopy.textContent = t("diagnosticsCardCopy");
@@ -1090,6 +1143,10 @@
     els.themeToggleBtn.addEventListener("click", cycleTheme);
     els.saveSnapshotBtn.addEventListener("click", saveSnapshotToHistory);
     els.exportSnapshotBtn.addEventListener("click", exportSnapshot);
+    els.exportBackupBtn.addEventListener("click", exportBrowserBackup);
+    els.importBackupReplaceBtn.addEventListener("click", () => promptBackupImport("replace"));
+    els.importBackupMergeBtn.addEventListener("click", () => promptBackupImport("merge"));
+    els.backupFileInput.addEventListener("change", onBackupFileSelected);
     els.clearHistoryBtn.addEventListener("click", clearSavedHistory);
     els.historyList.addEventListener("click", onHistoryListClick);
 
@@ -1278,6 +1335,15 @@
     renderSavedHistory();
     syncControls();
     renderRequestState();
+  }
+
+  function setBackupMessage(text, tone) {
+    if (!els.backupMessage) {
+      return;
+    }
+    els.backupMessage.className = `message ${tone || ""}`.trim();
+    els.backupMessage.textContent = text;
+    els.backupMessage.dataset.touched = text === t("backupMessageIdle") ? "" : "true";
   }
 
   function describeProfile(profileId, sessionBaud) {
@@ -1904,6 +1970,9 @@
     els.loadHealthBtn.disabled = state.requestInFlight || rebootPending || uiState === "network_lost";
     els.readMemoryBtn.disabled = state.requestInFlight || rebootPending || !ready || !technicalEnabled || uiState === "network_lost";
     els.loadCatalogBtn.disabled = state.requestInFlight || rebootPending || !technicalEnabled || uiState === "network_lost";
+    els.exportBackupBtn.disabled = false;
+    els.importBackupReplaceBtn.disabled = false;
+    els.importBackupMergeBtn.disabled = false;
   }
 
   function renderRequestState() {
@@ -2206,6 +2275,17 @@
     setMessage(t("exportSnapshotDownloaded"), "ok");
   }
 
+  function exportBrowserBackup() {
+    const backup = buildBrowserBackupExport();
+    const filename = buildBackupFilename(backup.exported_at);
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json"
+    });
+
+    downloadBlob(filename, blob);
+    setBackupMessage(t("exportBackupDone"), "ok");
+  }
+
   function buildSnapshotExport() {
     const snapshot = buildSnapshotForStorage();
     if (!snapshot) {
@@ -2237,6 +2317,214 @@
       round_trip_ms: state.lastRoundTripMs,
       sections
     };
+  }
+
+  function buildBrowserBackupExport() {
+    return {
+      type: BACKUP_TYPE,
+      version: BACKUP_VERSION,
+      exported_at: new Date().toISOString(),
+      app: "MA1.7 ESP32 Scanner",
+      local_storage: collectManagedLocalStorage()
+    };
+  }
+
+  function collectManagedLocalStorage() {
+    const payload = {};
+    try {
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (!key || !key.startsWith(STORAGE_PREFIX)) {
+          continue;
+        }
+        const value = localStorage.getItem(key);
+        if (value !== null) {
+          payload[key] = value;
+        }
+      }
+    } catch (_) {
+      // Ignore storage iteration failures and export what was collected so far.
+    }
+    return payload;
+  }
+
+  function buildBackupFilename(isoTimestamp) {
+    const stamp = String(isoTimestamp || new Date().toISOString()).replace(/[:.]/g, "-");
+    return `ma17-backup-${stamp}.json`;
+  }
+
+  function promptBackupImport(mode) {
+    state.pendingBackupImportMode = mode === "merge" ? "merge" : "replace";
+    if (els.backupFileInput) {
+      els.backupFileInput.value = "";
+      els.backupFileInput.click();
+    }
+  }
+
+  async function onBackupFileSelected(event) {
+    const input = event && event.target ? event.target : els.backupFileInput;
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) {
+      setBackupMessage(t("importBackupCancelled"));
+      return;
+    }
+
+    try {
+      const raw = await readFileAsText(file);
+      const backup = parseBrowserBackup(raw);
+      const mode = state.pendingBackupImportMode === "merge" ? "merge" : "replace";
+      if (!applyBrowserBackup(backup, mode)) {
+        setBackupMessage(t("importBackupWriteFailed"), "err");
+        return;
+      }
+
+      rehydrateStateFromStorage();
+      await resyncAfterBackupImport();
+      renderAll();
+      setBackupMessage(
+        mode === "merge" ? t("importBackupMergeDone") : t("importBackupReplaceDone"),
+        "ok"
+      );
+    } catch (error) {
+      const messageKey =
+        error && error.message === "invalid_json" ? "importBackupInvalidJson"
+          : error && error.message === "invalid_shape" ? "importBackupInvalidShape"
+            : error && error.message === "no_supported_data" ? "importBackupNoData"
+              : "importBackupReadFailed";
+      setBackupMessage(t(messageKey), "err");
+    } finally {
+      if (input) {
+        input.value = "";
+      }
+    }
+  }
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.readAsText(file);
+    });
+  }
+
+  function parseBrowserBackup(rawText) {
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (_) {
+      throw new Error("invalid_json");
+    }
+
+    if (
+      !parsed ||
+      parsed.type !== BACKUP_TYPE ||
+      parsed.version !== BACKUP_VERSION ||
+      !parsed.local_storage ||
+      typeof parsed.local_storage !== "object" ||
+      Array.isArray(parsed.local_storage)
+    ) {
+      throw new Error("invalid_shape");
+    }
+
+    const supportedEntries = Object.entries(parsed.local_storage).filter(([key, value]) =>
+      typeof key === "string" &&
+      key.startsWith(STORAGE_PREFIX) &&
+      typeof value === "string"
+    );
+
+    if (!supportedEntries.length) {
+      throw new Error("no_supported_data");
+    }
+
+    return {
+      type: parsed.type,
+      version: parsed.version,
+      exported_at: typeof parsed.exported_at === "string" ? parsed.exported_at : "",
+      local_storage: Object.fromEntries(supportedEntries)
+    };
+  }
+
+  function applyBrowserBackup(backup, mode) {
+    const entries = Object.entries(backup.local_storage || {});
+    if (!entries.length) {
+      return false;
+    }
+
+    const previousEntries = collectManagedLocalStorage();
+    try {
+      if (mode === "replace") {
+        clearManagedLocalStorage();
+      }
+
+      entries.forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      return true;
+    } catch (_) {
+      restoreManagedLocalStorage(previousEntries);
+      return false;
+    }
+  }
+
+  function clearManagedLocalStorage() {
+    const keys = [];
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+    keys.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+  }
+
+  function restoreManagedLocalStorage(entries) {
+    try {
+      clearManagedLocalStorage();
+      Object.entries(entries || {}).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+    } catch (_) {
+      // Ignore restore failures. The caller will surface the write error.
+    }
+  }
+
+  function rehydrateStateFromStorage() {
+    state.locale = detectInitialLocale();
+    state.activeTab = normalizeActiveTab(localStorage.getItem(storageKeys.prefTab) || "live");
+    state.theme = detectInitialTheme();
+    state.savedHistory = loadSavedHistory();
+    state.selectedHistoryId = state.savedHistory.length ? state.savedHistory[0].id : "";
+    state.selectedProfileId = localStorage.getItem(storageKeys.prefProfile) || "";
+    state.data.status = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheStatus, state.locale), state.locale);
+    state.data.live = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheLive, state.locale), state.locale);
+    state.data.dtc = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheDtc, state.locale), state.locale);
+    state.data.health = loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheHealth, state.locale), state.locale);
+    state.data.technical = chooseMostRecentEntry(
+      loadSessionEntry(storageKeys.sessionTechnicalMemory),
+      loadPersistentEntry(getLocalizedStorageKey(storageKeys.cacheCatalog, state.locale), state.locale)
+    );
+    state.technicalMode = Boolean(
+      getEntryPayload(state.data.status) &&
+      getEntryPayload(state.data.status).technical_mode_enabled
+    );
+    state.sensorHistory = {};
+    applyTheme();
+    renderProfileOptions();
+  }
+
+  async function resyncAfterBackupImport() {
+    clearTimeout(state.pollTimer);
+    await loadProfiles(true);
+    await pollStatus(true);
+    await refreshLocalizedActiveTab();
+    schedulePolling();
+  }
+
+  function normalizeActiveTab(tab) {
+    return ["live", "dtc", "health", "technical"].includes(tab) ? tab : "live";
   }
 
   function buildSnapshotSections() {

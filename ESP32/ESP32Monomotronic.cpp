@@ -27,6 +27,8 @@ SOFTWARE.
 #include "ESP32Monomotronic.h"
 #include "SensorCatalog.h"
 
+#include "driver/uart.h"
+
 namespace {
 constexpr uint32_t kIdleYieldMs = 1;
 
@@ -78,6 +80,18 @@ const char *OperationName(ESP32Monomotronic::OperationKind operation) {
         return "none";
     }
 }
+
+constexpr uart_port_t kUartPort = UART_NUM_2;
+
+void configureUartLowLatency() {
+    // Mantém também o estado interno do HardwareSerial consistente.
+    Serial2.setRxFIFOFull(1);
+    Serial2.setRxTimeout(1);
+
+    // Remove apenas o idle adicional do hardware.
+    ESP_ERROR_CHECK(uart_set_tx_idle_num(kUartPort, 0));
+}
+
 } // namespace
 
 void ESP32Monomotronic::sendInitPins(uint8_t port1, uint8_t port2,
@@ -87,7 +101,21 @@ void ESP32Monomotronic::sendInitPins(uint8_t port1, uint8_t port2,
     delay(200);
 }
 
+void ESP32Monomotronic::configureSerial() {
+    if (Serial2) {
+        Serial2.end();
+    }
+
+    // TX ring buffer já é zero por padrão no Arduino-ESP32 2.0.6.
+    Serial2.begin(config_.session_baud, SERIAL_8N1);
+    configureUartLowLatency();
+}
+
 bool ESP32Monomotronic::baudInit() {
+    if (config_.disable_uart_in_slow_init) {
+        Serial2.end();
+    }
+
     digitalWrite(config_.tx_init_pin, HIGH);
     digitalWrite(config_.aux_init_pin, HIGH);
     delay(200);
@@ -101,6 +129,10 @@ bool ESP32Monomotronic::baudInit() {
 
     digitalWrite(config_.tx_init_pin, LOW);
     digitalWrite(config_.aux_init_pin, LOW);
+
+    if (config_.disable_uart_in_slow_init) {
+        configureSerial();
+    }
     return true;
 }
 
@@ -642,7 +674,7 @@ void ESP32Monomotronic::commThread(void *vpmm) {
     mm.ECUThreadCanAcceptCommands_ = false;
     mm.stopRequested_ = false;
 
-    Serial2.begin(mm.config_.session_baud, SERIAL_8N1);
+    mm.configureSerial();
     Serial2.flush();
 
     while (!mm.stopRequested_) {

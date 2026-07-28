@@ -49,6 +49,8 @@ struct ESP32ScannerConfig {
     uint32_t write_timeout_ms{250};
     uint32_t command_timeout_ms{1800};
     uint32_t keep_alive_ms{500};
+
+    bool disable_uart_in_slow_init{false};
 };
 
 struct ECUmmpacket {
@@ -178,6 +180,7 @@ class ESP32Monomotronic {
                    const uint8_t *data = nullptr, uint8_t length = 0,
                    uint32_t timeout = 1000);
     bool waitForResponse(optional<ECUmmpacket> &response, uint32_t timeout_ms);
+    void configureSerial();
     bool baudInit();
     void recordPacketActivity(bool sent);
     bool tryStartOperation(OperationKind operation);

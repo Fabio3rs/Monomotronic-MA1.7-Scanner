@@ -608,6 +608,27 @@
       gap: 10px;
     }
 
+    .backup-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .backup-actions button {
+      width: 100%;
+    }
+
+    .backup-file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .history-item {
       display: grid;
       gap: 10px;
@@ -1041,6 +1062,23 @@
           <div id="historyList" class="history-list"></div>
           <div id="historyDetail" class="message history-detail">No saved snapshot selected.</div>
           <div id="savedHistoryFooter" class="footer-note">Saved history is local to this browser only.</div>
+        </section>
+
+        <section class="card">
+          <div class="card-title-row">
+            <div>
+              <h3 id="backupHeading">Browser Backup</h3>
+              <div id="backupCopy" class="card-copy">Preferences, cache, and saved history live only in this browser. Use this backup to migrate or recover local data without sending commands to the ECU.</div>
+            </div>
+          </div>
+          <div class="backup-actions">
+            <button id="exportBackupBtn" class="secondary" type="button">Export backup</button>
+            <button id="importBackupReplaceBtn" class="secondary" type="button">Import and replace</button>
+            <button id="importBackupMergeBtn" class="secondary" type="button">Import and merge</button>
+            <input id="backupFileInput" class="backup-file-input" type="file" accept="application/json,.json">
+          </div>
+          <div id="backupMessage" class="message">Choose an export or import action for this browser backup.</div>
+          <div id="backupFooter" class="footer-note">Only ma17 local browser data is included. Session-only technical memory is never exported.</div>
         </section>
 
         <section class="card">
