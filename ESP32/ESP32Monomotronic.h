@@ -51,6 +51,7 @@ struct ESP32ScannerConfig {
     uint32_t keep_alive_ms{500};
 
     bool disable_uart_in_slow_init{false};
+    bool invert_init_pins{false};
 };
 
 struct ECUmmpacket {
