@@ -92,6 +92,13 @@ void configureUartLowLatency() {
     ESP_ERROR_CHECK(uart_set_tx_idle_num(kUartPort, 0));
 }
 
+constexpr int invert_pin(int value, bool invert) {
+    if (invert) {
+        return (value == HIGH) ? LOW : HIGH;
+    }
+    return value;
+}
+
 } // namespace
 
 void ESP32Monomotronic::sendInitPins(uint8_t port1, uint8_t port2,
@@ -119,19 +126,23 @@ bool ESP32Monomotronic::baudInit() {
     pinMode(config_.tx_init_pin, OUTPUT);
     pinMode(config_.aux_init_pin, OUTPUT);
 
-    digitalWrite(config_.tx_init_pin, HIGH);
-    digitalWrite(config_.aux_init_pin, HIGH);
+    digitalWrite(config_.tx_init_pin,
+                 invert_pin(HIGH, config_.invert_init_pins));
+    digitalWrite(config_.aux_init_pin,
+                 invert_pin(HIGH, config_.invert_init_pins));
     delay(200);
 
     const uint8_t address = config_.init_address;
     for (uint8_t bit = 0; bit < 8; ++bit) {
         const bool high = (address & (1 << bit)) == 0;
         sendInitPins(config_.tx_init_pin, config_.aux_init_pin,
-                     high ? HIGH : LOW);
+                     invert_pin(high ? HIGH : LOW, config_.invert_init_pins));
     }
 
-    digitalWrite(config_.tx_init_pin, LOW);
-    digitalWrite(config_.aux_init_pin, LOW);
+    digitalWrite(config_.tx_init_pin,
+                 invert_pin(LOW, config_.invert_init_pins));
+    digitalWrite(config_.aux_init_pin,
+                 invert_pin(LOW, config_.invert_init_pins));
 
     if (config_.disable_uart_in_slow_init) {
         configureSerial();
